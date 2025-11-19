@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://lifeset:lifeset@db:5432/lifeset
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-secret-key-change-in-production
+      - JWT_REFRESH_SECRET=your-refresh-secret-change-in-production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./packages/backend:/app
+      - /app/node_modules
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=lifeset
+      - POSTGRES_PASSWORD=lifeset
+      - POSTGRES_DB=lifeset
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+
