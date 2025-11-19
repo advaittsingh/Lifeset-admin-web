@@ -20,6 +20,9 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMobileAdsAppId": "ca-app-pub-3940256099942544~1458002511"
+      },
+      "infoPlist": {
+        "NSContactsUsageDescription": "Allow LifeSet to access your contacts to invite friends."
       }
     },
     "android": {
@@ -29,7 +32,6 @@
       },
       "package": "com.lifeset.app",
       "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
       "config": {
         "googleMobileAdsAppId": "ca-app-pub-3940256099942544~3347511713"
       },
@@ -38,7 +40,9 @@
         "ACCESS_NETWORK_STATE",
         "READ_CONTACTS",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE"
+        "READ_EXTERNAL_STORAGE",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "web": {
@@ -59,5 +63,11 @@
         }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "b4b97e99-42e0-4d8c-88e1-02fac273b187"
+      }
+    },
+    "owner": "advait_singh"
   }
 }
