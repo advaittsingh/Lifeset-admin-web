@@ -16,6 +16,16 @@ export class FileService {
 
   async uploadFile(file: Buffer, key: string, contentType: string) {
     const bucket = this.configService.get('S3_BUCKET_NAME');
+    
+    // If AWS credentials are not configured, return a local URL for development
+    if (!this.configService.get('AWS_ACCESS_KEY_ID') || !bucket) {
+      // For local development, return a data URL or local path
+      const base64 = file.toString('base64');
+      return {
+        Location: `data:${contentType};base64,${base64}`,
+        Key: key,
+      };
+    }
 
     return this.s3
       .upload({

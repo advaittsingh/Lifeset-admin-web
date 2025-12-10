@@ -1,37 +1,23 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Plus, Loader2, Calendar } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
-import { useToast } from '../../contexts/ToastContext';
 
 export default function DailyDigestPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: '', description: '', date: new Date().toISOString().split('T')[0] });
-  const queryClient = useQueryClient();
-  const { showToast } = useToast();
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['daily-digests'],
-    queryFn: () => cmsApi.getDailyDigests(),
+    queryKey: ['daily-digests', searchTerm],
+    queryFn: () => cmsApi.getDailyDigests({ search: searchTerm || undefined }),
   });
 
   const digests = Array.isArray(data) ? data : (data?.data || []);
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => cmsApi.createDailyDigest(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily-digests'] });
-      showToast('Daily digest created successfully', 'success');
-      setIsCreateDialogOpen(false);
-      setFormData({ title: '', description: '', date: new Date().toISOString().split('T')[0] });
-    },
-  });
 
   return (
     <AdminLayout>
@@ -43,7 +29,7 @@ export default function DailyDigestPage() {
           </div>
           <Button
             className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => navigate('/cms/daily-digest/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
             Create Digest
@@ -88,55 +74,6 @@ export default function DailyDigestPage() {
           </CardContent>
         </Card>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Daily Digest</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Title</label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Date</label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={6}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => createMutation.mutate(formData)}
-                disabled={createMutation.isPending || !formData.title || !formData.description}
-              >
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </AdminLayout>
   );

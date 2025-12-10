@@ -56,5 +56,43 @@ export const monitoringApi = {
     const response = await apiClient.post('/admin/monitoring/cache/clear', { pattern });
     return response.data.data || response.data;
   },
+
+  // Error Logs & Crash Reports
+  getErrorLogs: async (limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    const response = await apiClient.get(`/admin/monitoring/errors?${params.toString()}`);
+    return response.data.data || response.data;
+  },
+  getCrashReports: async () => {
+    const response = await apiClient.get('/admin/monitoring/crashes');
+    return response.data.data || response.data;
+  },
+
+  // System Health
+  getSystemHealth: async () => {
+    const response = await apiClient.get('/admin/monitoring/health');
+    return response.data.data || response.data;
+  },
+
+  // Recovery Actions
+  performRecoveryAction: async (action: string, params?: Record<string, any>) => {
+    const response = await apiClient.post('/admin/monitoring/recovery', { action, params });
+    return response.data.data || response.data;
+  },
+
+  // Alerts
+  getAlerts: async () => {
+    const response = await apiClient.get('/admin/monitoring/alerts');
+    return response.data.data || response.data;
+  },
+
+  // Performance History
+  getPerformanceHistory: async (hours?: number) => {
+    const params = hours ? `?hours=${hours}` : '';
+    const response = await apiClient.get(`/admin/monitoring/performance/history${params}`);
+    return response.data.data || response.data;
+  },
 };
 

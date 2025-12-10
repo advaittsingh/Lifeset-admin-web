@@ -9,18 +9,23 @@ export class RecruiterService {
   async getDashboardStats(companyId: string) {
     const [totalJobs, activeJobs, totalApplications, pendingApplications, shortlisted, rejected] = await Promise.all([
       this.prisma.jobPost.count({ where: { companyId } }),
-      this.prisma.jobPost.count({ where: { companyId, status: 'ACTIVE' } }),
+      this.prisma.jobPost.count({
+        where: {
+          companyId,
+          post: { isActive: true },
+        },
+      }),
       this.prisma.jobApplication.count({
         where: { jobPost: { companyId } },
       }),
       this.prisma.jobApplication.count({
-        where: { jobPost: { companyId }, status: 'PENDING' },
+        where: { jobPost: { companyId }, status: 'pending' },
       }),
       this.prisma.jobApplication.count({
-        where: { jobPost: { companyId }, status: 'SHORTLISTED' },
+        where: { jobPost: { companyId }, status: 'shortlisted' },
       }),
       this.prisma.jobApplication.count({
-        where: { jobPost: { companyId }, status: 'REJECTED' },
+        where: { jobPost: { companyId }, status: 'rejected' },
       }),
     ]);
 
@@ -85,10 +90,10 @@ export class RecruiterService {
     return jobs.map((job) => ({
       ...job,
       applicationStats: {
-        total: job._count.jobApplications,
-        pending: job.jobApplications.filter((a) => a.status === 'PENDING').length,
-        shortlisted: job.jobApplications.filter((a) => a.status === 'SHORTLISTED').length,
-        rejected: job.jobApplications.filter((a) => a.status === 'REJECTED').length,
+        total: job._count?.jobApplications || 0,
+        pending: job.jobApplications?.filter((a) => a.status === 'PENDING').length || 0,
+        shortlisted: job.jobApplications?.filter((a) => a.status === 'SHORTLISTED').length || 0,
+        rejected: job.jobApplications?.filter((a) => a.status === 'REJECTED').length || 0,
       },
     }));
   }
@@ -191,7 +196,6 @@ export class RecruiterService {
         _count: {
           select: {
             jobApplications: true,
-            views: true,
           },
         },
         jobApplications: {
@@ -202,16 +206,22 @@ export class RecruiterService {
       },
     });
 
-    return jobs.map((job) => ({
-      id: job.id,
-      title: job.jobTitle,
-      views: job._count.views || 0,
-      applications: job._count.jobApplications,
-      applicationRate: job._count.views > 0 ? ((job._count.jobApplications / job._count.views) * 100).toFixed(2) : 0,
-      shortlistRate: job._count.jobApplications > 0
-        ? ((job.jobApplications.filter((a) => a.status === 'SHORTLISTED').length / job._count.jobApplications) * 100).toFixed(2)
-        : 0,
-    }));
+    return jobs.map((job) => {
+      const applicationCount = job._count?.jobApplications || 0;
+      const views = job.views || 0;
+      const shortlistedCount = job.jobApplications?.filter((a) => a.status === 'SHORTLISTED').length || 0;
+      
+      return {
+        id: job.id,
+        title: job.jobTitle,
+        views: views,
+        applications: applicationCount,
+        applicationRate: views > 0 ? ((applicationCount / views) * 100).toFixed(2) : '0',
+        shortlistRate: applicationCount > 0
+          ? ((shortlistedCount / applicationCount) * 100).toFixed(2)
+          : '0',
+      };
+    });
   }
 }
 

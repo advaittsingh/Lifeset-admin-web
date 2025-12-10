@@ -2,21 +2,23 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { BarChart3, TrendingUp, Users, Eye, MousePointerClick, Loader2 } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Eye, MousePointerClick, Loader2, AlertCircle } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { analyticsApi } from '../../services/api/analytics';
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
 
-  const { data: overview, isLoading: overviewLoading } = useQuery({
+  const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ['analytics-overview'],
     queryFn: () => analyticsApi.getOverview(),
+    retry: 1,
   });
 
-  const { data: userGrowth, isLoading: growthLoading } = useQuery({
+  const { data: userGrowth, isLoading: growthLoading, error: growthError } = useQuery({
     queryKey: ['analytics-user-growth', period],
     queryFn: () => analyticsApi.getUserGrowth(period),
+    retry: 1,
   });
 
   const engagementData = [
@@ -26,11 +28,38 @@ export default function AnalyticsPage() {
     { name: 'Users', value: overview?.activeUsers || 0, color: '#8b5cf6' },
   ];
 
+  const hasError = overviewError || growthError;
+  const errorMessage = (overviewError as any)?.response?.data?.message || 
+                       (overviewError as any)?.message || 
+                       (growthError as any)?.message ||
+                       'Failed to load analytics data. Please check if the backend is running.';
+
   if (overviewLoading || growthLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (hasError && !overview && !userGrowth) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-96">
+          <Card className="border-red-200 bg-red-50 max-w-md">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 text-red-800">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold">Failed to load analytics</p>
+                  <p className="text-sm mt-1">{errorMessage}</p>
+                  <p className="text-xs mt-2 text-red-600">Make sure the backend server is running on http://localhost:3000</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </AdminLayout>
     );

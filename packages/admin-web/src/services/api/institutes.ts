@@ -59,6 +59,54 @@ export const institutesApi = {
     return response.data;
   },
 
+  // Awarded Management
+  getAwardedData: async (courseCategoryId?: string) => {
+    const params = courseCategoryId ? { courseCategoryId } : {};
+    const response = await apiClient.get('/admin/institutes/course-master/awarded', { params });
+    return response.data.data || response.data;
+  },
+  createAwarded: async (data: any) => {
+    const response = await apiClient.post('/admin/institutes/course-master/awarded', data);
+    return response.data.data || response.data;
+  },
+  updateAwarded: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/institutes/course-master/awarded/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteAwarded: async (id: string) => {
+    const response = await apiClient.delete(`/admin/institutes/course-master/awarded/${id}`);
+    return response.data;
+  },
+
+  // Specialisation Management
+  getSpecialisationData: async (awardedId?: string) => {
+    const params = awardedId ? { awardedId } : {};
+    const response = await apiClient.get('/admin/institutes/course-master/specialisations', { params });
+    return response.data.data || response.data;
+  },
+  createSpecialisation: async (data: any) => {
+    const response = await apiClient.post('/admin/institutes/course-master/specialisations', data);
+    return response.data.data || response.data;
+  },
+  updateSpecialisation: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/institutes/course-master/specialisations/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteSpecialisation: async (id: string) => {
+    const response = await apiClient.delete(`/admin/institutes/course-master/specialisations/${id}`);
+    return response.data;
+  },
+
+  // Bulk Upload
+  bulkUploadAwarded: async (data: Array<{ name: string; description?: string; courseCategoryId: string; isActive?: boolean }>) => {
+    const response = await apiClient.post('/admin/institutes/course-master/awarded/bulk-upload', { data });
+    return response.data.data || response.data;
+  },
+  bulkUploadSpecialisation: async (data: Array<{ name: string; description?: string; awardedId: string; isActive?: boolean }>) => {
+    const response = await apiClient.post('/admin/institutes/course-master/specialisations/bulk-upload', { data });
+    return response.data.data || response.data;
+  },
+
   // Institutes
   getInstitutes: async (params?: any) => {
     const response = await apiClient.get('/admin/institutes', { params });

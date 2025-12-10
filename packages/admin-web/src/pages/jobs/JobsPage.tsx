@@ -1,30 +1,20 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
 import { Briefcase, Plus, MapPin, DollarSign, Users, Loader2, Trash2, Edit, Eye } from 'lucide-react';
 import { jobsApi, JobPost } from '../../services/api/jobs';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function JobsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPost | null>(null);
-  const [formData, setFormData] = useState({
-    jobTitle: '',
-    jobDescription: '',
-    location: '',
-    salaryMin: '',
-    salaryMax: '',
-    experience: '',
-    skills: '',
-    applicationDeadline: '',
-  });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -37,30 +27,6 @@ export default function JobsPage() {
 
   const jobs = jobsData?.data || jobsData || [];
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => jobsApi.create({
-      ...data,
-      skills: data.skills.split(',').map((s: string) => s.trim()).filter(Boolean),
-      salaryMin: data.salaryMin ? parseFloat(data.salaryMin) : undefined,
-      salaryMax: data.salaryMax ? parseFloat(data.salaryMax) : undefined,
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      showToast('Job posted successfully', 'success');
-      setIsCreateDialogOpen(false);
-      setFormData({
-        jobTitle: '',
-        jobDescription: '',
-        location: '',
-        salaryMin: '',
-        salaryMax: '',
-        experience: '',
-        skills: '',
-        applicationDeadline: '',
-      });
-    },
-    onError: () => showToast('Failed to post job', 'error'),
-  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => jobsApi.delete(id),
@@ -71,9 +37,6 @@ export default function JobsPage() {
     onError: () => showToast('Failed to delete job', 'error'),
   });
 
-  const handleCreate = () => {
-    createMutation.mutate(formData);
-  };
 
   if (error) {
     return (
@@ -99,7 +62,7 @@ export default function JobsPage() {
           </div>
           <Button 
             className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => navigate('/jobs/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
             Post Job
@@ -218,6 +181,14 @@ export default function JobsPage() {
                             View Details
                           </Button>
                           <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/jobs/edit/${job.id}`)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
                             variant="destructive"
                             size="sm"
                             onClick={() => {
@@ -240,107 +211,6 @@ export default function JobsPage() {
           </CardContent>
         </Card>
 
-        {/* Create Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Post New Job</DialogTitle>
-              <DialogDescription>Create a new job listing</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Job Title *</label>
-                <Input
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  placeholder="e.g., Senior Software Engineer"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Job Description *</label>
-                <Textarea
-                  value={formData.jobDescription}
-                  onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
-                  placeholder="Describe the job role, requirements, and responsibilities..."
-                  rows={8}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Location</label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g., San Francisco, CA"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Experience</label>
-                  <Input
-                    value={formData.experience}
-                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                    placeholder="e.g., 2-5 years"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Min Salary (k)</label>
-                  <Input
-                    type="number"
-                    value={formData.salaryMin}
-                    onChange={(e) => setFormData({ ...formData, salaryMin: e.target.value })}
-                    placeholder="e.g., 100"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Max Salary (k)</label>
-                  <Input
-                    type="number"
-                    value={formData.salaryMax}
-                    onChange={(e) => setFormData({ ...formData, salaryMax: e.target.value })}
-                    placeholder="e.g., 150"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Skills (comma-separated)</label>
-                <Input
-                  value={formData.skills}
-                  onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                  placeholder="e.g., JavaScript, React, Node.js"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Application Deadline</label>
-                <Input
-                  type="date"
-                  value={formData.applicationDeadline}
-                  onChange={(e) => setFormData({ ...formData, applicationDeadline: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={handleCreate}
-                disabled={createMutation.isPending || !formData.jobTitle || !formData.jobDescription}
-              >
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  'Post Job'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* View Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

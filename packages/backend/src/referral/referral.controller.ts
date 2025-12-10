@@ -62,19 +62,5 @@ export class ReferralController {
   async getLeaderboard(@Query('limit') limit?: number) {
     return this.referralService.getLeaderboard(limit ? parseInt(limit.toString()) : 10);
   }
-
-  @Post('send-whatsapp')
-  @ApiOperation({ summary: 'Send WhatsApp invite' })
-  async sendWhatsAppInvite(
-    @CurrentUser() user: any,
-    @Body() data: { phoneNumber: string },
-  ) {
-    const referralCode = await this.referralService.getMyReferralCode(user.id);
-    return this.referralService.sendWhatsAppInvite(
-      data.phoneNumber,
-      referralCode.referralCode,
-      user.email?.split('@')[0] || 'Friend',
-    );
-  }
 }
 

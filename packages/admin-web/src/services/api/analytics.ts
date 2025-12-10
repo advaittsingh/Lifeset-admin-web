@@ -37,5 +37,10 @@ export const analyticsApi = {
     const response = await apiClient.get('/analytics/engagement', { params: { period } });
     return response.data.data || response.data;
   },
+
+  getDashboardStats: async () => {
+    const response = await apiClient.get('/admin/dashboard/stats');
+    return response.data.data || response.data;
+  },
 };
 

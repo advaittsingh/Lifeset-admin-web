@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MonitoringService } from './monitoring.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -98,6 +98,50 @@ export class MonitoringController {
       console.error('Clear cache controller error:', error);
       throw new Error(error?.message || 'Failed to clear cache');
     }
+  }
+
+  // ========== Error Logs & Crash Reports ==========
+  @Get('errors')
+  @ApiOperation({ summary: 'Get error logs' })
+  async getErrorLogs(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.monitoringService.getErrorLogs(
+      limit ? parseInt(limit) : 100,
+      offset ? parseInt(offset) : 0
+    );
+  }
+
+  @Get('crashes')
+  @ApiOperation({ summary: 'Get crash reports' })
+  async getCrashReports() {
+    return this.monitoringService.getCrashReports();
+  }
+
+  // ========== System Health ==========
+  @Get('health')
+  @ApiOperation({ summary: 'Get system health status' })
+  async getSystemHealth() {
+    return this.monitoringService.getSystemHealth();
+  }
+
+  // ========== Recovery Actions ==========
+  @Post('recovery')
+  @ApiOperation({ summary: 'Perform recovery action' })
+  async performRecoveryAction(@Body() data: { action: string; params?: Record<string, any> }) {
+    return this.monitoringService.performRecoveryAction(data.action, data.params);
+  }
+
+  // ========== Alerts ==========
+  @Get('alerts')
+  @ApiOperation({ summary: 'Get system alerts' })
+  async getAlerts() {
+    return this.monitoringService.getAlerts();
+  }
+
+  // ========== Performance History ==========
+  @Get('performance/history')
+  @ApiOperation({ summary: 'Get performance metrics history' })
+  async getPerformanceHistory(@Query('hours') hours?: string) {
+    return this.monitoringService.getPerformanceHistory(hours ? parseInt(hours) : 24);
   }
 }
 

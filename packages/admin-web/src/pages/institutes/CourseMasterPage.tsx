@@ -95,7 +95,7 @@ export default function CourseMasterPage() {
                             <p className="text-sm text-slate-600 mb-2">{cat.description}</p>
                           )}
                           <p className="text-xs text-slate-500">
-                            {cat._count?.courses || 0} courses
+                            {cat._count?.awardeds || 0} awardeds
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

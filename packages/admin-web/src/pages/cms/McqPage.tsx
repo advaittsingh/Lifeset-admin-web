@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -11,20 +12,12 @@ import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function McqPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    question: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0,
-    categoryId: '',
-    explanation: '',
-  });
   const [categoryFormData, setCategoryFormData] = useState({ name: '', description: '' });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -42,26 +35,6 @@ export default function McqPage() {
   const questions = Array.isArray(questionsData) ? questionsData : (questionsData?.data || []);
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => cmsApi.createMcqQuestion(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
-      showToast('MCQ question created successfully', 'success');
-      setIsCreateDialogOpen(false);
-      setFormData({ question: '', options: ['', '', '', ''], correctAnswer: 0, categoryId: '', explanation: '' });
-    },
-    onError: () => showToast('Failed to create MCQ question', 'error'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => cmsApi.updateMcqQuestion(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
-      showToast('MCQ question updated successfully', 'success');
-      setIsEditDialogOpen(false);
-    },
-    onError: () => showToast('Failed to update MCQ question', 'error'),
-  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => cmsApi.deleteMcqQuestion(id),
@@ -99,7 +72,7 @@ export default function McqPage() {
             </Button>
             <Button
               className="bg-gradient-to-r from-blue-600 to-indigo-600"
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={() => navigate('/cms/mcq/create')}
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Question
@@ -174,15 +147,7 @@ export default function McqPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                setSelectedItem(item);
-                                setFormData({
-                                  question: item.question,
-                                  options: item.options || ['', '', '', ''],
-                                  correctAnswer: item.correctAnswer || 0,
-                                  categoryId: item.categoryId || '',
-                                  explanation: item.explanation || '',
-                                });
-                                setIsEditDialogOpen(true);
+                                navigate(`/cms/mcq/edit/${item.id}`);
                               }}
                             >
                               <Edit className="h-4 w-4" />
@@ -208,165 +173,6 @@ export default function McqPage() {
           </CardContent>
         </Card>
 
-        {/* Create Question Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create MCQ Question</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Question</label>
-                <Textarea
-                  value={formData.question}
-                  onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                  placeholder="Enter question"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Options</label>
-                {formData.options.map((opt, idx) => (
-                  <div key={idx} className="mb-2">
-                    <Input
-                      value={opt}
-                      onChange={(e) => {
-                        const newOptions = [...formData.options];
-                        newOptions[idx] = e.target.value;
-                        setFormData({ ...formData, options: newOptions });
-                      }}
-                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Correct Answer</label>
-                <select
-                  value={formData.correctAnswer}
-                  onChange={(e) => setFormData({ ...formData, correctAnswer: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md"
-                >
-                  {formData.options.map((_, idx) => (
-                    <option key={idx} value={idx}>
-                      Option {String.fromCharCode(65 + idx)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Category</label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Explanation (Optional)</label>
-                <Textarea
-                  value={formData.explanation}
-                  onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                  placeholder="Enter explanation"
-                  rows={2}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => createMutation.mutate(formData)}
-                disabled={createMutation.isPending || !formData.question || !formData.categoryId}
-              >
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Dialog - Similar structure */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit MCQ Question</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Question</label>
-                <Textarea
-                  value={formData.question}
-                  onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Options</label>
-                {formData.options.map((opt, idx) => (
-                  <div key={idx} className="mb-2">
-                    <Input
-                      value={opt}
-                      onChange={(e) => {
-                        const newOptions = [...formData.options];
-                        newOptions[idx] = e.target.value;
-                        setFormData({ ...formData, options: newOptions });
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Correct Answer</label>
-                <select
-                  value={formData.correctAnswer}
-                  onChange={(e) => setFormData({ ...formData, correctAnswer: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md"
-                >
-                  {formData.options.map((_, idx) => (
-                    <option key={idx} value={idx}>
-                      Option {String.fromCharCode(65 + idx)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => updateMutation.mutate({ id: selectedItem?.id, data: formData })}
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  'Update'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Category Dialog */}
         <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>

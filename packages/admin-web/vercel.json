@@ -1,0 +1,14 @@
+{
+  "buildCommand": "cd packages/admin-web && npm install && npm run build",
+  "outputDirectory": "packages/admin-web/dist",
+  "devCommand": "cd packages/admin-web && npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

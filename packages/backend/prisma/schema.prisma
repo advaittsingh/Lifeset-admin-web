@@ -514,6 +514,7 @@ model Course {
   collegeId       String?
   collegeProfileId String?
   categoryId      String?
+  specialisationId String?
   name            String
   code            String?
   duration        String?
@@ -525,10 +526,12 @@ model Course {
   college         College? @relation(fields: [collegeId], references: [id])
   collegeProfile  CollegeProfile? @relation(fields: [collegeProfileId], references: [id])
   category        CourseCategory? @relation(fields: [categoryId], references: [id])
+  specialisation  Specialisation? @relation(fields: [specialisationId], references: [id])
   students        StudentProfile[]
   assignments     CourseAssignment[]
 
   @@index([collegeProfileId])
+  @@index([specialisationId])
 }
 
 model CourseCategory {
@@ -538,7 +541,37 @@ model CourseCategory {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  awardeds    Awarded[]
+}
+
+model Awarded {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?   @db.Text
+  courseCategoryId String
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  courseCategory  CourseCategory @relation(fields: [courseCategoryId], references: [id], onDelete: Cascade)
+  specialisations Specialisation[]
+
+  @@index([courseCategoryId])
+}
+
+model Specialisation {
+  id          String    @id @default(uuid())
+  name        String
+  description String?   @db.Text
+  awardedId   String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  awarded     Awarded  @relation(fields: [awardedId], references: [id], onDelete: Cascade)
   courses     Course[]
+
+  @@index([awardedId])
 }
 
 model CollegeSection {
@@ -739,6 +772,55 @@ model AdImpression {
   adSlot      AdSlot   @relation(fields: [adSlotId], references: [id], onDelete: Cascade)
 
   @@index([adSlotId])
+  @@index([createdAt])
+}
+
+model AdCampaign {
+  id                String   @id @default(uuid())
+  title             String?
+  imageUrl          String?  @db.Text
+  supportingText     String?  @db.Text
+  threeLineText     String?  @db.Text
+  buttonType        String?  // interested, readMore, download
+  buttonLink        String?  @db.Text
+  
+  // Targeting Filters
+  country           String?
+  state             String?
+  city              String?
+  courseCategory    String?
+  gender            String?
+  age               String?
+  userGroup         String?
+  
+  // Budget & Schedule
+  dailyBudget       Float    @default(0)
+  impressions      Int      @default(0)
+  estimatedUsers    Int      @default(0)
+  startDate         DateTime?
+  endDate           DateTime?
+  
+  // Advertiser Settings
+  advertiserStartDay DateTime?
+  advertiserEndDay   DateTime?
+  dailyAllocation    Float    @default(0)
+  slotAllocation     Float    @default(0)
+  hourlyAllocations  Json?    // { "Mon": { "0": 21, "1": 21, ... }, ... }
+  
+  // Additional Filters
+  advertiserState     String?
+  advertiserDistrict String?
+  advertiserLocation String?
+  advertiserSubject  String?
+  advertiserGender   String?
+  
+  // Status
+  status            String   @default("draft") // draft, active, paused, completed
+  createdBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
   @@index([createdAt])
 }
 

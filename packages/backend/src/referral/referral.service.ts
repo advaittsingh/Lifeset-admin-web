@@ -16,20 +16,16 @@ export class ReferralService {
     this.whatsappApiUrl = this.configService.get<string>('WHATSAPP_API_URL') || '';
   }
 
-  async createReferral(referrerId: string, referredEmail?: string, referredMobile?: string) {
-    // Find or create referral
-    const referral = await this.prisma.referral.upsert({
-      where: {
-        referrerId_referredEmail: {
-          referrerId,
-          referredEmail: referredEmail || '',
-        },
-      },
-      update: {},
-      create: {
+  async createReferral(referrerId: string, referredId?: string) {
+    // Generate referral code
+    const referralCode = this.generateReferralCode(referrerId);
+    
+    // Create referral
+    const referral = await this.prisma.referral.create({
+      data: {
         referrerId,
-        referredEmail,
-        referredMobile,
+        referredId: referredId || null,
+        referralCode,
         status: 'PENDING',
       },
     });
@@ -134,6 +130,60 @@ export class ReferralService {
       console.error('WhatsApp API error:', error);
       return { success: false, error: error.message };
     }
+  }
+
+  async verifyReferralCode(code: string) {
+    const referral = await this.prisma.referral.findUnique({
+      where: { referralCode: code },
+      include: {
+        referrer: {
+          select: {
+            id: true,
+            email: true,
+            mobile: true,
+          },
+        },
+      },
+    });
+
+    if (!referral) {
+      return { valid: false, message: 'Invalid referral code' };
+    }
+
+    if (referral.status !== 'PENDING') {
+      return { valid: false, message: 'Referral code already used' };
+    }
+
+    return { valid: true, referral };
+  }
+
+  async useReferralCode(userId: string, code: string) {
+    const referral = await this.prisma.referral.findUnique({
+      where: { referralCode: code },
+    });
+
+    if (!referral) {
+      throw new Error('Invalid referral code');
+    }
+
+    if (referral.status !== 'PENDING') {
+      throw new Error('Referral code already used');
+    }
+
+    if (referral.referrerId === userId) {
+      throw new Error('Cannot use your own referral code');
+    }
+
+    // Update referral status
+    const updated = await this.prisma.referral.update({
+      where: { id: referral.id },
+      data: {
+        referredId: userId,
+        status: 'COMPLETED',
+      },
+    });
+
+    return updated;
   }
 
   private generateReferralCode(userId: string): string {

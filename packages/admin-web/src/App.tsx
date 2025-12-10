@@ -1,21 +1,37 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import BulkUploadPage from './pages/dashboard/BulkUploadPage';
+import AppInstalledPage from './pages/dashboard/AppInstalledPage';
+import AwardsPage from './pages/dashboard/AwardsPage';
+import CreateAwardPage from './pages/dashboard/CreateAwardPage';
+import SpecialisationPage from './pages/dashboard/SpecialisationPage';
+import CreateSpecialisationPage from './pages/dashboard/CreateSpecialisationPage';
+import WallCategoriesPage from './pages/dashboard/WallCategoriesPage';
+import CourseRequestsPage from './pages/dashboard/CourseRequestsPage';
+import SponsorAdsPage from './pages/sponsor-ads/SponsorAdsPage';
+import AdManagementPage from './pages/sponsor-ads/AdManagementPage';
 import UsersPage from './pages/users/UsersPage';
 import PostsPage from './pages/posts/PostsPage';
 import JobsPage from './pages/jobs/JobsPage';
+import CreateJobPage from './pages/jobs/CreateJobPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 
 // CMS Pages
 import CurrentAffairsPage from './pages/cms/CurrentAffairsPage';
+import CreateCurrentAffairPage from './pages/cms/CreateCurrentAffairPage';
 import GeneralKnowledgePage from './pages/cms/GeneralKnowledgePage';
+import CreateGeneralKnowledgePage from './pages/cms/CreateGeneralKnowledgePage';
 import McqPage from './pages/cms/McqPage';
+import CreateMcqPage from './pages/cms/CreateMcqPage';
+import DailyDigestPage from './pages/cms/DailyDigestPage';
+import CreateDailyDigestPage from './pages/cms/CreateDailyDigestPage';
+import CollegeEventsPage from './pages/cms/CollegeEventsPage';
+import CreateCollegeEventPage from './pages/cms/CreateCollegeEventPage';
 import KnowYourselfPage from './pages/cms/KnowYourselfPage';
 import StudentsCommunityPage from './pages/cms/StudentsCommunityPage';
-import DailyDigestPage from './pages/cms/DailyDigestPage';
-import CollegeEventsPage from './pages/cms/CollegeEventsPage';
 import GovtVacanciesPage from './pages/cms/GovtVacanciesPage';
 
 // Institute Pages
@@ -38,6 +54,8 @@ import AppMonitoringPage from './pages/monitoring/AppMonitoringPage';
 import WebMonitoringPage from './pages/monitoring/WebMonitoringPage';
 import UserBehaviorPage from './pages/monitoring/UserBehaviorPage';
 import EngagementPage from './pages/monitoring/EngagementPage';
+import SystemHealthPage from './pages/monitoring/SystemHealthPage';
+import ErrorLogsPage from './pages/monitoring/ErrorLogsPage';
 
 import { useAuthStore } from './store/authStore';
 import { useEffect } from 'react';
@@ -69,6 +87,86 @@ export default function App() {
           }
         />
         <Route
+          path="/dashboard/bulk-upload"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <BulkUploadPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/app-installed"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <AppInstalledPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/awards"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <AwardsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/awards/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateAwardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/awards/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateAwardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/specialisations"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <SpecialisationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/specialisations/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateSpecialisationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/specialisations/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateSpecialisationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/wall-categories"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <WallCategoriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/course-requests"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CourseRequestsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/users"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
@@ -85,10 +183,50 @@ export default function App() {
           }
         />
         <Route
+          path="/sponsor-ads"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <SponsorAdsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sponsor-ads/manage"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <AdManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sponsor-ads/manage/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <AdManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/jobs"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <JobsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/jobs/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateJobPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/jobs/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateJobPage />
             </ProtectedRoute>
           }
         />
@@ -127,10 +265,42 @@ export default function App() {
           }
         />
         <Route
+          path="/cms/current-affairs/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCurrentAffairPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/current-affairs/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCurrentAffairPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/cms/general-knowledge"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <GeneralKnowledgePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/general-knowledge/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateGeneralKnowledgePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/general-knowledge/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateGeneralKnowledgePage />
             </ProtectedRoute>
           }
         />
@@ -147,6 +317,22 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <McqPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/mcq/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateMcqPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/mcq/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateMcqPage />
             </ProtectedRoute>
           }
         />
@@ -175,10 +361,42 @@ export default function App() {
           }
         />
         <Route
+          path="/cms/daily-digest/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateDailyDigestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/daily-digest/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateDailyDigestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/cms/college-events"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <CollegeEventsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/college-events/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCollegeEventPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/college-events/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCollegeEventPage />
             </ProtectedRoute>
           }
         />
@@ -300,14 +518,30 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/monitoring/engagement"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-              <EngagementPage />
-            </ProtectedRoute>
-          }
-        />
+            <Route
+              path="/monitoring/engagement"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                  <EngagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/monitoring/health"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                  <SystemHealthPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/monitoring/errors"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                  <ErrorLogsPage />
+                </ProtectedRoute>
+              }
+            />
         
         <Route 
           path="/" 

@@ -25,10 +25,11 @@ import {
   Globe,
   Zap,
   GraduationCap,
-  Award,
-  FolderOpen,
-  Megaphone
-} from 'lucide-react';
+      Award,
+      FolderOpen,
+      Megaphone,
+      AlertCircle
+    } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../lib/utils';
 
@@ -37,6 +38,7 @@ const coreMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Users', path: '/users' },
   { icon: FileText, label: 'Posts', path: '/posts' },
+  { icon: Megaphone, label: 'Sponsor Ads', path: '/sponsor-ads' },
   { icon: Bell, label: 'Notifications', path: '/notifications' },
 ];
 
@@ -47,12 +49,14 @@ const jobsMenuItems = [
 ];
 
 const monitoringMenuItems = [
-  { icon: Server, label: 'Server', path: '/monitoring/server' },
-  { icon: Activity, label: 'App', path: '/monitoring/app' },
-  { icon: Globe, label: 'Web', path: '/monitoring/web' },
-  { icon: TrendingUp, label: 'User Behavior', path: '/monitoring/user-behavior' },
-  { icon: Zap, label: 'Engagement', path: '/monitoring/engagement' },
-];
+      { icon: Server, label: 'Server', path: '/monitoring/server' },
+      { icon: Activity, label: 'App', path: '/monitoring/app' },
+      { icon: Globe, label: 'Web', path: '/monitoring/web' },
+      { icon: TrendingUp, label: 'User Behavior', path: '/monitoring/user-behavior' },
+      { icon: Zap, label: 'Engagement', path: '/monitoring/engagement' },
+      { icon: Activity, label: 'System Health', path: '/monitoring/health' },
+      { icon: AlertCircle, label: 'Error Logs', path: '/monitoring/errors' },
+    ];
 
 // Content Management - News, articles, and educational content
 const contentMenuItems = [
@@ -76,6 +80,8 @@ const communityMenuItems = [
 const instituteMenuItems = [
   { icon: Building2, label: 'Institutes', path: '/institutes' },
   { icon: GraduationCap, label: 'Course Master', path: '/institutes/course-master' },
+  { icon: Award, label: 'Awarded', path: '/dashboard/awards' },
+  { icon: BookOpen, label: 'Specialisations', path: '/dashboard/specialisations' },
   { icon: Search, label: 'Search Institutes', path: '/institutes/search' },
 ];
 

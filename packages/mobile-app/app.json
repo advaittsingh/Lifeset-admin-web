@@ -40,9 +40,7 @@
         "ACCESS_NETWORK_STATE",
         "READ_CONTACTS",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+        "READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {

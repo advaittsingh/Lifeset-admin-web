@@ -39,6 +39,69 @@ export class InstitutesAdminController {
     return this.institutesAdminService.deleteCourseCategory(id);
   }
 
+  // ========== Awarded Management ==========
+  @Get('course-master/awarded')
+  @ApiOperation({ summary: 'Get awarded data (Admin)' })
+  async getAwardedData(@Query('courseCategoryId') courseCategoryId?: string) {
+    return this.institutesAdminService.getAwardedData(courseCategoryId);
+  }
+
+  @Post('course-master/awarded')
+  @ApiOperation({ summary: 'Create awarded (Admin)' })
+  async createAwarded(@Body() data: any) {
+    return this.institutesAdminService.createAwarded(data);
+  }
+
+  @Put('course-master/awarded/:id')
+  @ApiOperation({ summary: 'Update awarded (Admin)' })
+  async updateAwarded(@Param('id') id: string, @Body() data: any) {
+    return this.institutesAdminService.updateAwarded(id, data);
+  }
+
+  @Delete('course-master/awarded/:id')
+  @ApiOperation({ summary: 'Delete awarded (Admin)' })
+  async deleteAwarded(@Param('id') id: string) {
+    return this.institutesAdminService.deleteAwarded(id);
+  }
+
+  // ========== Specialisation Management ==========
+  @Get('course-master/specialisations')
+  @ApiOperation({ summary: 'Get specialisation data (Admin)' })
+  async getSpecialisationData(@Query('awardedId') awardedId?: string) {
+    return this.institutesAdminService.getSpecialisationData(awardedId);
+  }
+
+  @Post('course-master/specialisations')
+  @ApiOperation({ summary: 'Create specialisation (Admin)' })
+  async createSpecialisation(@Body() data: any) {
+    return this.institutesAdminService.createSpecialisation(data);
+  }
+
+  @Put('course-master/specialisations/:id')
+  @ApiOperation({ summary: 'Update specialisation (Admin)' })
+  async updateSpecialisation(@Param('id') id: string, @Body() data: any) {
+    return this.institutesAdminService.updateSpecialisation(id, data);
+  }
+
+  @Delete('course-master/specialisations/:id')
+  @ApiOperation({ summary: 'Delete specialisation (Admin)' })
+  async deleteSpecialisation(@Param('id') id: string) {
+    return this.institutesAdminService.deleteSpecialisation(id);
+  }
+
+  // ========== Bulk Upload ==========
+  @Post('course-master/awarded/bulk-upload')
+  @ApiOperation({ summary: 'Bulk upload awarded from CSV data (Admin)' })
+  async bulkUploadAwarded(@Body() body: { data: Array<{ name: string; description?: string; courseCategoryId: string; isActive?: boolean }> }) {
+    return this.institutesAdminService.bulkUploadAwarded(body.data);
+  }
+
+  @Post('course-master/specialisations/bulk-upload')
+  @ApiOperation({ summary: 'Bulk upload specialisations from CSV data (Admin)' })
+  async bulkUploadSpecialisation(@Body() body: { data: Array<{ name: string; description?: string; awardedId: string; isActive?: boolean }> }) {
+    return this.institutesAdminService.bulkUploadSpecialisation(body.data);
+  }
+
   // ========== Institute Management ==========
   @Post()
   @ApiOperation({ summary: 'Create institute (Admin)' })
