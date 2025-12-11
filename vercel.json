@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "installCommand": "bash -lc 'corepack enable && corepack prepare npm@9.8.0 --activate && npm ci'",
-  "buildCommand": "bash -lc 'corepack enable && corepack prepare npm@9.8.0 --activate && cd packages/admin-web && npm run build'",
+  "installCommand": "npm ci",
+  "buildCommand": "bash -lc 'cd packages/admin-web && npm run build'",
   "framework": null,
   "outputDirectory": "packages/admin-web/dist",
   "rewrites": [
