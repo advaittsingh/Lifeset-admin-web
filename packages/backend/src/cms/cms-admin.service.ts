@@ -118,24 +118,6 @@ export class CmsAdminService {
     return this.prisma.post.update({ where: { id }, data: { isActive: false } });
   }
 
-  async createGeneralKnowledge(data: any, userId: string) {
-    return this.prisma.post.create({
-      data: {
-        ...data,
-        userId,
-        postType: 'GENERAL',
-      },
-    });
-  }
-
-  async updateGeneralKnowledge(id: string, data: any) {
-    return this.prisma.post.update({ where: { id }, data });
-  }
-
-  async deleteGeneralKnowledge(id: string) {
-    return this.prisma.post.update({ where: { id }, data: { isActive: false } });
-  }
-
   // ========== MCQ Management ==========
   async getMcqQuestions(filters?: any) {
     const where: any = {};
@@ -522,12 +504,8 @@ export class CmsAdminService {
         name: data.name,
         description: data.description,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        // Note: categoryFor and parentCategory would need schema changes
-        // For now, storing in metadata if needed
-        metadata: data.categoryFor || data.parentCategoryId ? {
-          categoryFor: data.categoryFor,
-          parentCategoryId: data.parentCategoryId,
-        } : undefined,
+        // Note: categoryFor and parentCategoryId would need schema changes to support
+        // Currently, WallCategory model doesn't have a metadata field in the schema
       },
     });
   }
@@ -539,10 +517,8 @@ export class CmsAdminService {
         name: data.name,
         description: data.description,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        metadata: data.categoryFor || data.parentCategoryId ? {
-          categoryFor: data.categoryFor,
-          parentCategoryId: data.parentCategoryId,
-        } : undefined,
+        // Note: categoryFor and parentCategoryId would need schema changes to support
+        // Currently, WallCategory model doesn't have a metadata field in the schema
       },
     });
   }

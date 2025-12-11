@@ -953,17 +953,13 @@ export class AdminController {
   @Post('wall-categories')
   @ApiOperation({ summary: 'Create wall category (Admin)' })
   async createWallCategory(@Body() data: { name: string; description?: string; categoryFor?: string; parentCategoryId?: string; isActive?: boolean }) {
+    // Note: parentCategoryId and categoryFor would need schema changes to support
+    // Currently, WallCategory model doesn't have a metadata field in the schema
     return this.prisma.wallCategory.create({
       data: {
         name: data.name,
         description: data.description,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        // Note: parentCategoryId and categoryFor would need schema changes to support
-        // For now, storing in metadata if needed
-        metadata: data.categoryFor || data.parentCategoryId ? {
-          categoryFor: data.categoryFor,
-          parentCategoryId: data.parentCategoryId,
-        } : undefined,
       },
     });
   }
@@ -976,14 +972,9 @@ export class AdminController {
     if (data.description !== undefined) updateData.description = data.description;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     
-    // Store categoryFor and parentCategoryId in metadata
-    if (data.categoryFor || data.parentCategoryId) {
-      const existing = await this.prisma.wallCategory.findUnique({ where: { id } });
-      const metadata = existing?.metadata as any || {};
-      if (data.categoryFor) metadata.categoryFor = data.categoryFor;
-      if (data.parentCategoryId) metadata.parentCategoryId = data.parentCategoryId;
-      updateData.metadata = metadata;
-    }
+    // Note: categoryFor and parentCategoryId would need schema changes to support
+    // Currently, WallCategory model doesn't have a metadata field in the schema
+    // These fields are ignored for now
 
     return this.prisma.wallCategory.update({
       where: { id },
