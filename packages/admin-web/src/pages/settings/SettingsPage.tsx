@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -34,14 +34,15 @@ export default function SettingsPage() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: () => settingsApi.get(),
-    onSuccess: (data) => {
-      if (data) {
-        if (data.security) setSecuritySettings({ ...securitySettings, ...data.security });
-        if (data.notifications) setNotificationSettings({ ...notificationSettings, ...data.notifications });
-        if (data.system) setSystemSettings({ ...systemSettings, ...data.system });
-      }
-    },
   });
+
+  useEffect(() => {
+    if (settings) {
+      if (settings.security) setSecuritySettings(prev => ({ ...prev, ...settings.security }));
+      if (settings.notifications) setNotificationSettings(prev => ({ ...prev, ...settings.notifications }));
+      if (settings.system) setSystemSettings(prev => ({ ...prev, ...settings.system }));
+    }
+  }, [settings]);
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<Settings>) => settingsApi.update(data),

@@ -57,7 +57,7 @@ export default function CreateMcqPage() {
 
       // Pre-fill question with context if available
       if (categoryParam || subCategoryParam || sectionParam || countryParam) {
-        const contextParts = [];
+        const contextParts: string[] = [];
         if (categoryParam) contextParts.push(`Category: ${categoryParam}`);
         if (subCategoryParam) contextParts.push(`Sub Category: ${subCategoryParam}`);
         if (sectionParam) contextParts.push(`Section: ${sectionParam}`);

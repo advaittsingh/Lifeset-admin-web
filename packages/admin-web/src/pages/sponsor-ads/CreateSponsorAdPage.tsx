@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -8,6 +8,14 @@ import { ArrowLeft, Save, Eye, Link as LinkIcon, Image as ImageIcon, Loader2 } f
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+type SponsorAdFormData = {
+  sponsorBacklink: string;
+  sponsorAdImage: string;
+  sponsorAdImageFile: File | null;
+  imagePreview: string | null;
+  status: 'active' | 'inactive';
+};
+
 export default function CreateSponsorAdPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -15,7 +23,7 @@ export default function CreateSponsorAdPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SponsorAdFormData>({
     sponsorBacklink: '',
     sponsorAdImage: '',
     sponsorAdImageFile: null as File | null,
@@ -39,7 +47,7 @@ export default function CreateSponsorAdPage() {
   });
 
   // Update form when existing ad loads
-  React.useEffect(() => {
+  useEffect(() => {
     if (existingAd && isEditMode) {
       setFormData({
         sponsorBacklink: existingAd.sponsorBacklink || '',
@@ -52,7 +60,7 @@ export default function CreateSponsorAdPage() {
   }, [existingAd, isEditMode]);
 
   // Handle image file selection
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Validate file type
@@ -91,7 +99,7 @@ export default function CreateSponsorAdPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: SponsorAdFormData) => {
       // This would be an actual API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { success: true };
@@ -105,7 +113,7 @@ export default function CreateSponsorAdPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: SponsorAdFormData) => {
       // This would be an actual API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { success: true };
@@ -130,11 +138,12 @@ export default function CreateSponsorAdPage() {
     }
 
     // Prepare form data for submission
-    const submitData = {
+    const submitData: SponsorAdFormData = {
       sponsorBacklink: formData.sponsorBacklink,
       sponsorAdImage: formData.imagePreview || formData.sponsorAdImage, // Use preview if file uploaded, else URL
+      sponsorAdImageFile: formData.sponsorAdImageFile,
+      imagePreview: formData.imagePreview,
       status: formData.status,
-      imageFile: formData.sponsorAdImageFile, // Include file for actual upload
     };
 
     if (isEditMode) {

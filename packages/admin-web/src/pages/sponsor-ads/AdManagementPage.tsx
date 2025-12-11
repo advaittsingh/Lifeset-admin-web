@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { Fragment, useEffect, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -36,9 +36,17 @@ interface DailyAllocation {
 interface AdPerformance {
   id: string;
   money: number;
-  percentageShare: number;
+  percentageShare: string;
   visibilityPrediction: number;
 }
+
+type AdPerformanceState = {
+  dailyPrediction: number;
+  adOpportunityDaily: number;
+  slotAdOpportunity: number;
+  selectedSlot: string;
+  ads: AdPerformance[];
+};
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -115,10 +123,10 @@ export default function AdManagementPage() {
   });
 
   // Ad Performance
-  const [adPerformance, setAdPerformance] = useState({
-    dailyPrediction: '10000',
-    adOpportunityDaily: '2000',
-    slotAdOpportunity: '120',
+  const [adPerformance, setAdPerformance] = useState<AdPerformanceState>({
+    dailyPrediction: 10000,
+    adOpportunityDaily: 2000,
+    slotAdOpportunity: 120,
     selectedSlot: '7PM - 7:59PM',
     ads: [] as AdPerformance[],
   });
@@ -247,26 +255,18 @@ export default function AdManagementPage() {
   }, [advertiserSettings.dailyAllocation]);
 
   // Fetch ad performance predictions
-  const { data: performanceData } = useQuery({
+  const { data: performanceData } = useQuery<AdPerformanceState>({
     queryKey: ['ad-performance', adPerformance.selectedSlot],
     queryFn: () => adManagementApi.getPerformancePredictions(adPerformance.selectedSlot),
     refetchInterval: 30000, // Refresh every 30 seconds
     retry: false, // Don't retry on error
-    onError: () => {
-      // Silently fail - use default data
-    },
   });
 
   // Fetch active users data
-  const { data: activeUsers } = useQuery({
+  const { data: activeUsers } = useQuery<Record<string, Record<string, number>>>({
     queryKey: ['active-users-by-hour'],
     queryFn: () => adManagementApi.getActiveUsersByHour(),
     refetchInterval: 60000, // Refresh every minute
-    onSuccess: (data) => {
-      if (data) {
-        setActiveUsersData(data);
-      }
-    },
   });
 
   useEffect(() => {
@@ -274,6 +274,12 @@ export default function AdManagementPage() {
       setAdPerformance(performanceData);
     }
   }, [performanceData]);
+
+  useEffect(() => {
+    if (activeUsers) {
+      setActiveUsersData(activeUsers);
+    }
+  }, [activeUsers]);
 
   const imageUploadMutation = useMutation({
     mutationFn: adManagementApi.uploadImage,
@@ -291,7 +297,7 @@ export default function AdManagementPage() {
     },
   });
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -533,7 +539,7 @@ export default function AdManagementPage() {
                 const isAccessible = step.id <= currentStep || completedSteps.has(step.id - 1);
                 
                 return (
-                  <React.Fragment key={step.id}>
+                  <Fragment key={step.id}>
                     <div className="flex flex-col items-center flex-1">
                       <button
                         type="button"
@@ -575,7 +581,7 @@ export default function AdManagementPage() {
                         isCompleted ? 'bg-emerald-500' : currentStep > step.id ? 'bg-blue-600' : 'bg-slate-200'
                       }`} />
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}
             </div>
@@ -591,7 +597,9 @@ export default function AdManagementPage() {
         }} className="w-full">
           <TabsList className="hidden">
             {steps.map(step => (
-              <TabsTrigger key={step.key} value={step.key} />
+              <TabsTrigger key={step.key} value={step.key}>
+                {step.label}
+              </TabsTrigger>
             ))}
           </TabsList>
 
