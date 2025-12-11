@@ -928,5 +928,85 @@ export class AdminController {
       return 0;
     }
   }
+
+  // Wall Categories Management
+  @Get('wall-categories')
+  @ApiOperation({ summary: 'Get all wall categories (Admin)' })
+  async getWallCategories() {
+    const categories = await this.prisma.wallCategory.findMany({
+      include: {
+        _count: {
+          select: {
+            posts: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return categories.map((cat) => ({
+      ...cat,
+      postCount: cat._count.posts,
+    }));
+  }
+
+  @Post('wall-categories')
+  @ApiOperation({ summary: 'Create wall category (Admin)' })
+  async createWallCategory(@Body() data: { name: string; description?: string; categoryFor?: string; parentCategoryId?: string; isActive?: boolean }) {
+    return this.prisma.wallCategory.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        // Note: parentCategoryId and categoryFor would need schema changes to support
+        // For now, storing in metadata if needed
+        metadata: data.categoryFor || data.parentCategoryId ? {
+          categoryFor: data.categoryFor,
+          parentCategoryId: data.parentCategoryId,
+        } : undefined,
+      },
+    });
+  }
+
+  @Put('wall-categories/:id')
+  @ApiOperation({ summary: 'Update wall category (Admin)' })
+  async updateWallCategory(@Param('id') id: string, @Body() data: { name?: string; description?: string; categoryFor?: string; parentCategoryId?: string; isActive?: boolean }) {
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    
+    // Store categoryFor and parentCategoryId in metadata
+    if (data.categoryFor || data.parentCategoryId) {
+      const existing = await this.prisma.wallCategory.findUnique({ where: { id } });
+      const metadata = existing?.metadata as any || {};
+      if (data.categoryFor) metadata.categoryFor = data.categoryFor;
+      if (data.parentCategoryId) metadata.parentCategoryId = data.parentCategoryId;
+      updateData.metadata = metadata;
+    }
+
+    return this.prisma.wallCategory.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  @Delete('wall-categories/:id')
+  @ApiOperation({ summary: 'Delete wall category (Admin)' })
+  async deleteWallCategory(@Param('id') id: string) {
+    // Check if category has posts
+    const category = await this.prisma.wallCategory.findUnique({
+      where: { id },
+      include: { _count: { select: { posts: true } } },
+    });
+
+    if (category?._count.posts > 0) {
+      throw new Error('Cannot delete category with existing posts. Please reassign or delete posts first.');
+    }
+
+    return this.prisma.wallCategory.delete({
+      where: { id },
+    });
+  }
 }
 

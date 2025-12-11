@@ -47,6 +47,24 @@ export const cmsApi = {
     return response.data;
   },
 
+  // General Knowledge
+  getGeneralKnowledge: async (params?: any) => {
+    const response = await apiClient.get('/admin/cms/general-knowledge', { params });
+    return response.data.data || response.data;
+  },
+  createGeneralKnowledge: async (data: any) => {
+    const response = await apiClient.post('/admin/cms/general-knowledge', data);
+    return response.data.data || response.data;
+  },
+  updateGeneralKnowledge: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/cms/general-knowledge/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteGeneralKnowledge: async (id: string) => {
+    const response = await apiClient.delete(`/admin/cms/general-knowledge/${id}`);
+    return response.data;
+  },
+
   // MCQ
   getMcqQuestions: async (params?: any) => {
     const response = await apiClient.get('/admin/cms/mcq/questions', { params });

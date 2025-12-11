@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "buildCommand": "cd packages/admin-web && npm install && npm run build",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "outputDirectory": "packages/admin-web/dist",
+  "functions": {
+    "api/index.ts": {
+      "runtime": "@vercel/node@3.0.7"
+    }
+  }
+}

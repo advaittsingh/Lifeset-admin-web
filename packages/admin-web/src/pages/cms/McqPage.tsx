@@ -126,17 +126,33 @@ export default function McqPage() {
                               <h3 className="font-semibold">{item.question}</h3>
                             </div>
                             <div className="ml-6 space-y-1 mb-2">
-                              {item.options?.map((opt: string, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className={`text-sm ${
-                                    idx === item.correctAnswer ? 'text-green-600 font-semibold' : 'text-slate-600'
-                                  }`}
-                                >
-                                  {String.fromCharCode(65 + idx)}. {opt}
-                                  {idx === item.correctAnswer && ' ✓'}
-                                </div>
-                              ))}
+                              {item.options?.map((opt: any, idx: number) => {
+                                // Handle both string and object formats
+                                let optionText = '';
+                                if (typeof opt === 'string') {
+                                  optionText = opt;
+                                } else if (typeof opt === 'object' && opt !== null) {
+                                  optionText = opt.text || opt.label || opt.value || JSON.stringify(opt);
+                                } else {
+                                  optionText = String(opt);
+                                }
+                                
+                                const isCorrect = typeof opt === 'object' && opt !== null && opt?.isCorrect !== undefined 
+                                  ? opt.isCorrect 
+                                  : idx === item.correctAnswer;
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`text-sm ${
+                                      isCorrect ? 'text-green-600 font-semibold' : 'text-slate-600'
+                                    }`}
+                                  >
+                                    {String.fromCharCode(65 + idx)}. {optionText}
+                                    {isCorrect && ' ✓'}
+                                  </div>
+                                );
+                              })}
                             </div>
                             {item.explanation && (
                               <p className="text-xs text-slate-500 ml-6 mt-2">Explanation: {item.explanation}</p>

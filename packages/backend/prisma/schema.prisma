@@ -525,7 +525,7 @@ model Course {
 
   college         College? @relation(fields: [collegeId], references: [id])
   collegeProfile  CollegeProfile? @relation(fields: [collegeProfileId], references: [id])
-  category        CourseCategory? @relation(fields: [categoryId], references: [id])
+  category        CourseCategory? @relation("CourseCategory", fields: [categoryId], references: [id])
   specialisation  Specialisation? @relation(fields: [specialisationId], references: [id])
   students        StudentProfile[]
   assignments     CourseAssignment[]
@@ -541,6 +541,7 @@ model CourseCategory {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  courses     Course[] @relation("CourseCategory")
   awardeds    Awarded[]
 }
 

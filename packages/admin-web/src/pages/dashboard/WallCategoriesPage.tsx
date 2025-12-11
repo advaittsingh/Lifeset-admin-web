@@ -18,52 +18,113 @@ export default function WallCategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formData, setFormData] = useState({ 
+    categoryFor: '', 
+    parentCategory: '', 
+    name: '', 
+    status: 'active' 
+  });
 
-  // Mock data - replace with actual API call when endpoint is available
+  // Fetch categories from API
   const { data: categoriesData, isLoading } = useQuery({
     queryKey: ['wall-categories', searchTerm],
     queryFn: async () => {
-      // This would be an actual API call
-      return {
-        data: [
-          { id: '1', name: 'General', description: 'General posts and updates', isActive: true, postCount: 1250 },
-          { id: '2', name: 'Jobs', description: 'Job postings and opportunities', isActive: true, postCount: 450 },
-          { id: '3', name: 'Events', description: 'College and community events', isActive: true, postCount: 320 },
-          { id: '4', name: 'News', description: 'Latest news and updates', isActive: true, postCount: 890 },
-        ],
-      };
+      try {
+        const data = await postsApi.getWallCategories();
+        return Array.isArray(data) ? { data } : data;
+      } catch (error) {
+        console.error('Error fetching wall categories:', error);
+        return { data: [] };
+      }
     },
   });
 
   const categories = categoriesData?.data || [];
   const filteredCategories = categories.filter((cat: any) =>
-    cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+    cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const createMutation = useMutation({
+    mutationFn: (data: typeof formData) => postsApi.createWallCategory({
+      name: data.name,
+      categoryFor: data.categoryFor || undefined,
+      parentCategoryId: data.parentCategory || undefined,
+      isActive: data.status === 'active',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      showToast('Category created successfully', 'success');
+      setIsCreateDialogOpen(false);
+      setFormData({ categoryFor: '', parentCategory: '', name: '', status: 'active' });
+    },
+    onError: () => showToast('Failed to create category', 'error'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: typeof formData) => postsApi.updateWallCategory(selectedCategory.id, {
+      name: data.name,
+      categoryFor: data.categoryFor || undefined,
+      parentCategoryId: data.parentCategory || undefined,
+      isActive: data.status === 'active',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      showToast('Category updated successfully', 'success');
+      setIsEditDialogOpen(false);
+      setSelectedCategory(null);
+      setFormData({ categoryFor: '', parentCategory: '', name: '', status: 'active' });
+    },
+    onError: () => showToast('Failed to update category', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => postsApi.deleteWallCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      showToast('Category deleted successfully', 'success');
+      setIsDeleteDialogOpen(false);
+      setSelectedCategory(null);
+    },
+    onError: () => showToast('Failed to delete category', 'error'),
+  });
+
   const handleCreate = () => {
-    showToast('Category created successfully', 'success');
-    setIsCreateDialogOpen(false);
-    setFormData({ name: '', description: '' });
+    if (!formData.name.trim()) {
+      showToast('Please enter a category name', 'error');
+      return;
+    }
+    createMutation.mutate(formData);
   };
 
   const handleEdit = (category: any) => {
     setSelectedCategory(category);
-    setFormData({ name: category.name, description: category.description || '' });
+    setFormData({ 
+      categoryFor: category.metadata?.categoryFor || '', 
+      parentCategory: category.metadata?.parentCategoryId || '', 
+      name: category.name || '', 
+      status: category.isActive ? 'active' : 'inactive' 
+    });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = () => {
-    showToast('Category updated successfully', 'success');
-    setIsEditDialogOpen(false);
-    setSelectedCategory(null);
-    setFormData({ name: '', description: '' });
+    if (!formData.name.trim()) {
+      showToast('Please enter a category name', 'error');
+      return;
+    }
+    updateMutation.mutate(formData);
   };
 
   const handleDelete = (category: any) => {
-    if (window.confirm(`Are you sure you want to delete "${category.name}"?`)) {
-      showToast('Category deleted successfully', 'success');
+    setSelectedCategory(category);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedCategory) {
+      deleteMutation.mutate(selectedCategory.id);
     }
   };
 
@@ -186,7 +247,10 @@ export default function WallCategoriesPage() {
                           {category.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mt-1">{category.description}</p>
+                      <p className="text-sm text-slate-600 mt-1">{category.description || 'No description'}</p>
+                      {category.metadata?.categoryFor && (
+                        <p className="text-xs text-slate-500 mt-1">For: {category.metadata.categoryFor}</p>
+                      )}
                       <p className="text-xs text-slate-500 mt-1">{category.postCount || 0} posts</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -215,13 +279,39 @@ export default function WallCategoriesPage() {
 
         {/* Create Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Wall Category</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700">Category Name</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Category For *</label>
+                <Input
+                  placeholder="e.g., Posts, Events, Jobs"
+                  value={formData.categoryFor}
+                  onChange={(e) => setFormData({ ...formData, categoryFor: e.target.value })}
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">What type of content this category is for</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Parent Category</label>
+                <select
+                  value={formData.parentCategory}
+                  onChange={(e) => setFormData({ ...formData, parentCategory: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">None (Top Level)</option>
+                  {categories.filter((c: any) => c.id !== selectedCategory?.id).map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Select a parent category if this is a subcategory</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
                 <Input
                   placeholder="Enter category name"
                   value={formData.name}
@@ -230,32 +320,72 @@ export default function WallCategoriesPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700">Description</label>
-                <Textarea
-                  placeholder="Enter category description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1"
-                  rows={3}
-                />
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} className="bg-blue-600">Create Category</Button>
+              <Button 
+                onClick={handleCreate} 
+                className="bg-blue-600"
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Category'
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Wall Category</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700">Category Name</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Category For *</label>
+                <Input
+                  placeholder="e.g., Posts, Events, Jobs"
+                  value={formData.categoryFor}
+                  onChange={(e) => setFormData({ ...formData, categoryFor: e.target.value })}
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">What type of content this category is for</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Parent Category</label>
+                <select
+                  value={formData.parentCategory}
+                  onChange={(e) => setFormData({ ...formData, parentCategory: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">None (Top Level)</option>
+                  {categories.filter((c: any) => c.id !== selectedCategory?.id).map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Select a parent category if this is a subcategory</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
                 <Input
                   placeholder="Enter category name"
                   value={formData.name}
@@ -264,19 +394,62 @@ export default function WallCategoriesPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700">Description</label>
-                <Textarea
-                  placeholder="Enter category description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1"
-                  rows={3}
-                />
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleUpdate} className="bg-blue-600">Update Category</Button>
+              <Button 
+                onClick={handleUpdate} 
+                className="bg-blue-600"
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Category'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Category</DialogTitle>
+            </DialogHeader>
+            <p className="text-slate-600">
+              Are you sure you want to delete "{selectedCategory?.name}"? This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -284,6 +457,10 @@ export default function WallCategoriesPage() {
     </AdminLayout>
   );
 }
+
+
+
+
 
 
 

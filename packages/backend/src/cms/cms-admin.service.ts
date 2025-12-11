@@ -7,7 +7,7 @@ export class CmsAdminService {
 
   // ========== Current Affairs & General Knowledge ==========
   async getCurrentAffairs(filters?: any) {
-    const where: any = { postType: 'GENERAL' };
+    const where: any = { postType: 'CURRENT_AFFAIRS' };
     if (filters?.category) where.categoryId = filters.category;
     if (filters?.search) {
       where.OR = [
@@ -26,20 +26,113 @@ export class CmsAdminService {
     });
   }
 
-  async createCurrentAffair(data: any) {
+  async createCurrentAffair(data: any, userId: string) {
+    const { metadata, ...postData } = data;
     return this.prisma.post.create({
       data: {
-        ...data,
-        postType: 'GENERAL',
+        ...postData,
+        userId,
+        postType: 'CURRENT_AFFAIRS',
+        metadata: metadata ? { ...metadata } : undefined,
       },
     });
   }
 
   async updateCurrentAffair(id: string, data: any) {
-    return this.prisma.post.update({ where: { id }, data });
+    const { metadata, ...postData } = data;
+    // Merge metadata if it exists
+    if (metadata) {
+      const existing = await this.prisma.post.findUnique({ where: { id } });
+      const existingMetadata = (existing?.metadata as any) || {};
+      postData.metadata = { ...existingMetadata, ...metadata };
+    }
+    return this.prisma.post.update({ where: { id }, data: postData });
   }
 
   async deleteCurrentAffair(id: string) {
+    return this.prisma.post.update({ where: { id }, data: { isActive: false } });
+  }
+
+  // ========== General Knowledge ==========
+  async getGeneralKnowledge(filters?: any) {
+    const where: any = { 
+      postType: 'COLLEGE_FEED',
+    };
+    if (filters?.category) where.categoryId = filters.category;
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+    if (filters?.isActive !== undefined) where.isActive = filters.isActive === 'true';
+
+    const allPosts = await this.prisma.post.findMany({
+      where,
+      include: { user: true, category: true },
+      orderBy: { createdAt: 'desc' },
+      skip: filters?.page ? (filters.page - 1) * (filters.limit || 20) : 0,
+      take: (filters?.limit || 20) * 2,
+    });
+
+    // Filter by metadata type
+    const filtered = allPosts.filter((post: any) => {
+      const metadata = post.metadata as any;
+      return metadata?.type === 'GENERAL_KNOWLEDGE';
+    });
+
+    return filtered.slice(0, filters?.limit || 20);
+  }
+
+  async createGeneralKnowledge(data: any, userId: string) {
+    const { metadata, ...postData } = data;
+    return this.prisma.post.create({
+      data: {
+        ...postData,
+        userId,
+        postType: 'COLLEGE_FEED',
+        metadata: {
+          ...(metadata || {}),
+          type: 'GENERAL_KNOWLEDGE',
+        },
+      },
+    });
+  }
+
+  async updateGeneralKnowledge(id: string, data: any) {
+    const { metadata, ...postData } = data;
+    // Merge metadata if it exists
+    if (metadata) {
+      const existing = await this.prisma.post.findUnique({ where: { id } });
+      const existingMetadata = (existing?.metadata as any) || {};
+      postData.metadata = {
+        ...existingMetadata,
+        ...metadata,
+        type: 'GENERAL_KNOWLEDGE',
+      };
+    }
+    return this.prisma.post.update({ where: { id }, data: postData });
+  }
+
+  async deleteGeneralKnowledge(id: string) {
+    return this.prisma.post.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async createGeneralKnowledge(data: any, userId: string) {
+    return this.prisma.post.create({
+      data: {
+        ...data,
+        userId,
+        postType: 'GENERAL',
+      },
+    });
+  }
+
+  async updateGeneralKnowledge(id: string, data: any) {
+    return this.prisma.post.update({ where: { id }, data });
+  }
+
+  async deleteGeneralKnowledge(id: string) {
     return this.prisma.post.update({ where: { id }, data: { isActive: false } });
   }
 
@@ -104,29 +197,30 @@ export class CmsAdminService {
 
   // ========== Daily Digest ==========
   async getDailyDigests(filters?: any) {
-    const where: any = {};
+    const where: any = { postType: 'DIGEST' };
     if (filters?.date) where.date = new Date(filters.date);
     if (filters?.isPublished !== undefined) where.isPublished = filters.isPublished === 'true';
 
     return this.prisma.post.findMany({
-      where: { postType: 'GENERAL', ...where },
+      where,
       include: { user: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createDailyDigest(data: any) {
+  async createDailyDigest(data: any, userId: string) {
     return this.prisma.post.create({
       data: {
         ...data,
-        postType: 'GENERAL',
+        userId,
+        postType: 'DIGEST',
       },
     });
   }
 
   // ========== College Events ==========
   async getCollegeEvents(filters?: any) {
-    const where: any = { postType: 'GENERAL' };
+    const where: any = { postType: 'EVENT' };
     if (filters?.collegeId) where.user = { collegeProfile: { id: filters.collegeId } };
     if (filters?.search) {
       where.OR = [
@@ -141,11 +235,12 @@ export class CmsAdminService {
     });
   }
 
-  async createCollegeEvent(data: any) {
+  async createCollegeEvent(data: any, userId: string) {
     return this.prisma.post.create({
       data: {
         ...data,
-        postType: 'GENERAL',
+        userId,
+        postType: 'EVENT',
       },
     });
   }
@@ -409,5 +504,50 @@ export class CmsAdminService {
 
   async updateCourse(id: string, data: any) {
     return this.prisma.course.update({ where: { id }, data });
+  }
+
+  // ========== Wall Categories ==========
+  async getWallCategories() {
+    return this.prisma.wallCategory.findMany({
+      include: {
+        _count: { select: { posts: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createWallCategory(data: any) {
+    return this.prisma.wallCategory.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        // Note: categoryFor and parentCategory would need schema changes
+        // For now, storing in metadata if needed
+        metadata: data.categoryFor || data.parentCategoryId ? {
+          categoryFor: data.categoryFor,
+          parentCategoryId: data.parentCategoryId,
+        } : undefined,
+      },
+    });
+  }
+
+  async updateWallCategory(id: string, data: any) {
+    return this.prisma.wallCategory.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        metadata: data.categoryFor || data.parentCategoryId ? {
+          categoryFor: data.categoryFor,
+          parentCategoryId: data.parentCategoryId,
+        } : undefined,
+      },
+    });
+  }
+
+  async deleteWallCategory(id: string) {
+    return this.prisma.wallCategory.delete({ where: { id } });
   }
 }

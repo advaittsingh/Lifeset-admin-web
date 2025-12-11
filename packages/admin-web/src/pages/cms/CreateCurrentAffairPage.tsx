@@ -9,6 +9,8 @@ import { ArrowLeft, Save, Eye, Newspaper, Loader2, Image as ImageIcon } from 'lu
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi } from '../../services/api/cms';
+import { postsApi } from '../../services/api/posts';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 export default function CreateCurrentAffairPage() {
   const navigate = useNavigate();
@@ -17,20 +19,89 @@ export default function CreateCurrentAffairPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [newSubCategory, setNewSubCategory] = useState('');
+  const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    fullArticle: '',
     categoryId: '',
+    subCategoryId: '',
+    section: '',
+    country: '',
     imageUrl: '',
     imageFile: null as File | null,
     imagePreview: null as string | null,
+  });
+
+  // Fetch categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['wall-categories'],
+    queryFn: () => postsApi.getWallCategories(),
+  });
+
+  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+
+  useEffect(() => {
+    const subs = new Set<string>();
+    categories?.forEach((cat: any) => {
+      if (Array.isArray(cat?.subCategories)) {
+        cat.subCategories.forEach((sub: any) => {
+          const label =
+            typeof sub === 'string'
+              ? sub
+              : sub?.name || sub?.label || sub?.value || sub?.title;
+          if (label) subs.add(label);
+        });
+      }
+      const metaSub = cat?.metadata?.subCategory;
+      if (typeof metaSub === 'string' && metaSub.trim()) {
+        subs.add(metaSub.trim());
+      }
+    });
+    setSubCategoryOptions(Array.from(subs));
+  }, [categories]);
+
+  // Calculate word count for description
+  const getWordCount = (text: string) => {
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
+
+  const descriptionWordCount = getWordCount(formData.description);
+  const isDescriptionValid = descriptionWordCount >= 200 && descriptionWordCount <= 300;
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (data: { name: string; description?: string }) => postsApi.createWallCategory(data),
+    onSuccess: (createdCategory) => {
+      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      const created = Array.isArray(createdCategory) ? createdCategory[0] : createdCategory;
+      const createdId = created?.id;
+      const createdName = created?.name || newCategoryName;
+      setFormData(prev => ({
+        ...prev,
+        categoryId: createdId || prev.categoryId,
+        // keep sub-category choice intact
+      }));
+      if (createdName) {
+        showToast(`Category "${createdName}" created`, 'success');
+      } else {
+        showToast('Category created successfully', 'success');
+      }
+      setIsCategoryDialogOpen(false);
+      setNewCategoryName('');
+      setNewCategoryDescription('');
+    },
+    onError: () => showToast('Failed to create category', 'error'),
   });
 
   // Fetch existing item if editing
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
     queryKey: ['current-affair', id],
     queryFn: async () => {
-      // This would be an actual API call
       const items = await cmsApi.getCurrentAffairs({});
       return Array.isArray(items) ? items.find((item: any) => item.id === id) : null;
     },
@@ -40,13 +111,18 @@ export default function CreateCurrentAffairPage() {
   // Update form when existing item loads
   useEffect(() => {
     if (existingItem && isEditMode) {
+      const metadata = existingItem.metadata || {};
       setFormData({
         title: existingItem.title || '',
         description: existingItem.description || '',
+        fullArticle: metadata.fullArticle || '',
         categoryId: existingItem.categoryId || '',
-        imageUrl: existingItem.imageUrl || '',
+        subCategoryId: metadata.subCategoryId || '',
+        section: metadata.section || '',
+        country: metadata.country || '',
+        imageUrl: existingItem.images?.[0] || '',
         imageFile: null,
-        imagePreview: existingItem.imageUrl || null,
+        imagePreview: existingItem.images?.[0] || null,
       });
     }
   }, [existingItem, isEditMode]);
@@ -86,12 +162,21 @@ export default function CreateCurrentAffairPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => cmsApi.createCurrentAffair({
-      title: data.title,
-      description: data.description,
-      categoryId: data.categoryId || undefined,
-      imageUrl: data.imagePreview || data.imageUrl,
-    }),
+    mutationFn: (data: typeof formData) => {
+      const imageUrl = data.imagePreview || data.imageUrl;
+      return cmsApi.createCurrentAffair({
+        title: data.title,
+        description: data.description,
+        categoryId: data.categoryId || undefined,
+        images: imageUrl ? [imageUrl] : [],
+        metadata: {
+          fullArticle: data.fullArticle,
+          subCategoryId: data.subCategoryId,
+          section: data.section,
+          country: data.country,
+        },
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
       showToast('Current affair created successfully', 'success');
@@ -101,12 +186,21 @@ export default function CreateCurrentAffairPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: typeof formData) => cmsApi.updateCurrentAffair(id!, {
-      title: data.title,
-      description: data.description,
-      categoryId: data.categoryId || undefined,
-      imageUrl: data.imagePreview || data.imageUrl,
-    }),
+    mutationFn: (data: typeof formData) => {
+      const imageUrl = data.imagePreview || data.imageUrl;
+      return cmsApi.updateCurrentAffair(id!, {
+        title: data.title,
+        description: data.description,
+        categoryId: data.categoryId || undefined,
+        images: imageUrl ? [imageUrl] : [],
+        metadata: {
+          fullArticle: data.fullArticle,
+          subCategoryId: data.subCategoryId,
+          section: data.section,
+          country: data.country,
+        },
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
       queryClient.invalidateQueries({ queryKey: ['current-affair', id] });
@@ -125,12 +219,33 @@ export default function CreateCurrentAffairPage() {
       showToast('Please enter a description', 'error');
       return;
     }
+    if (!isDescriptionValid) {
+      showToast('Description must be between 200-300 words', 'error');
+      return;
+    }
 
     if (isEditMode) {
       updateMutation.mutate(formData);
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    if (value === '__create__') {
+      setIsCategoryDialogOpen(true);
+      return;
+    }
+    setFormData(prev => ({ ...prev, categoryId: value }));
+  };
+
+  const handleAddSubCategory = () => {
+    const trimmed = newSubCategory.trim();
+    if (!trimmed) return;
+    setSubCategoryOptions(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setFormData(prev => ({ ...prev, subCategoryId: trimmed }));
+    setNewSubCategory('');
+    showToast('Sub-category added', 'success');
   };
 
   if (isLoadingItem && isEditMode) {
@@ -168,7 +283,7 @@ export default function CreateCurrentAffairPage() {
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
           >
             {(createMutation.isPending || updateMutation.isPending) ? (
@@ -212,15 +327,111 @@ export default function CreateCurrentAffairPage() {
                 />
               </div>
 
-              {/* Description */}
+              {/* Description (200-300 words) */}
               <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Description *</label>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Description * (200-300 words)
+                </label>
                 <Textarea
-                  placeholder="Write the article content..."
+                  placeholder="Write a brief description (200-300 words)..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1 min-h-[200px]"
-                  rows={10}
+                  className="mt-1 min-h-[150px]"
+                  rows={6}
+                  maxLength={2000}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  {formData.description.split(/\s+/).filter(Boolean).length} words (recommended: 200-300)
+                </p>
+              </div>
+
+              {/* Full Article */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
+                <Textarea
+                  placeholder="Write the complete article content..."
+                  value={formData.fullArticle}
+                  onChange={(e) => setFormData({ ...formData, fullArticle: e.target.value })}
+                  className="mt-1 min-h-[300px]"
+                  rows={15}
+                />
+                <p className="text-xs text-slate-500 mt-1">Complete article content (optional)</p>
+              </div>
+
+              {/* Category Selection */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category *</label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={formData.categoryId}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                  <option value="__create__">+ Create New Category</option>
+                </select>
+                <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>
+                  + Add
+                </Button>
+              </div>
+              </div>
+
+              {/* Sub-Category */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Sub-Category</label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="New sub-category"
+                    value={newSubCategory}
+                    onChange={(e) => setNewSubCategory(e.target.value)}
+                  />
+                  <Button variant="outline" size="sm" onClick={handleAddSubCategory} disabled={!newSubCategory.trim()}>
+                    Add
+                  </Button>
+                </div>
+                <select
+                  value={formData.subCategoryId}
+                  onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select Sub Category</option>
+                  {subCategoryOptions.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ))}
+                  <option value={formData.subCategoryId || ''}>
+                    {formData.subCategoryId ? `Keep: ${formData.subCategoryId}` : 'Custom'}
+                  </option>
+                </select>
+              </div>
+              </div>
+
+              {/* Section */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
+                <Input
+                  placeholder="Enter section"
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Country */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Country</label>
+                <Input
+                  placeholder="Enter country"
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  className="mt-1"
                 />
               </div>
 
@@ -429,6 +640,57 @@ export default function CreateCurrentAffairPage() {
           </Card>
         </div>
       </div>
+
+      {/* Create Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-2 block">Name</label>
+              <Input
+                placeholder="Category name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-2 block">Description</label>
+              <Textarea
+                placeholder="Optional description"
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                createCategoryMutation.mutate({
+                  name: newCategoryName,
+                  description: newCategoryDescription,
+                })
+              }
+              disabled={createCategoryMutation.isPending || !newCategoryName.trim()}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600"
+            >
+              {createCategoryMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

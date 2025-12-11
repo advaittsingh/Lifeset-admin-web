@@ -4,6 +4,7 @@ import { CmsAdminService } from './cms-admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserType } from '@lifeset/shared';
 
 @ApiTags('CMS Admin')
@@ -23,8 +24,8 @@ export class CmsAdminController {
 
   @Post('current-affairs')
   @ApiOperation({ summary: 'Create current affair (Admin)' })
-  async createCurrentAffair(@Body() data: any) {
-    return this.cmsAdminService.createCurrentAffair(data);
+  async createCurrentAffair(@CurrentUser() user: any, @Body() data: any) {
+    return this.cmsAdminService.createCurrentAffair(data, user.id);
   }
 
   @Put('current-affairs/:id')
@@ -37,6 +38,31 @@ export class CmsAdminController {
   @ApiOperation({ summary: 'Delete current affair (Admin)' })
   async deleteCurrentAffair(@Param('id') id: string) {
     return this.cmsAdminService.deleteCurrentAffair(id);
+  }
+
+  // ========== General Knowledge ==========
+  @Get('general-knowledge')
+  @ApiOperation({ summary: 'Get general knowledge articles (Admin)' })
+  async getGeneralKnowledge(@Query() filters: any) {
+    return this.cmsAdminService.getGeneralKnowledge(filters);
+  }
+
+  @Post('general-knowledge')
+  @ApiOperation({ summary: 'Create general knowledge article (Admin)' })
+  async createGeneralKnowledge(@CurrentUser() user: any, @Body() data: any) {
+    return this.cmsAdminService.createGeneralKnowledge(data, user.id);
+  }
+
+  @Put('general-knowledge/:id')
+  @ApiOperation({ summary: 'Update general knowledge article (Admin)' })
+  async updateGeneralKnowledge(@Param('id') id: string, @Body() data: any) {
+    return this.cmsAdminService.updateGeneralKnowledge(id, data);
+  }
+
+  @Delete('general-knowledge/:id')
+  @ApiOperation({ summary: 'Delete general knowledge article (Admin)' })
+  async deleteGeneralKnowledge(@Param('id') id: string) {
+    return this.cmsAdminService.deleteGeneralKnowledge(id);
   }
 
   // ========== MCQ Management ==========
@@ -110,8 +136,8 @@ export class CmsAdminController {
 
   @Post('daily-digest')
   @ApiOperation({ summary: 'Create daily digest (Admin)' })
-  async createDailyDigest(@Body() data: any) {
-    return this.cmsAdminService.createDailyDigest(data);
+  async createDailyDigest(@CurrentUser() user: any, @Body() data: any) {
+    return this.cmsAdminService.createDailyDigest(data, user.id);
   }
 
   // ========== College Events ==========
@@ -123,8 +149,8 @@ export class CmsAdminController {
 
   @Post('college-events')
   @ApiOperation({ summary: 'Create college event (Admin)' })
-  async createCollegeEvent(@Body() data: any) {
-    return this.cmsAdminService.createCollegeEvent(data);
+  async createCollegeEvent(@CurrentUser() user: any, @Body() data: any) {
+    return this.cmsAdminService.createCollegeEvent(data, user.id);
   }
 
   // ========== Govt Vacancies ==========
@@ -276,5 +302,30 @@ export class CmsAdminController {
   @ApiOperation({ summary: 'Update course (Admin)' })
   async updateCourse(@Param('id') id: string, @Body() data: any) {
     return this.cmsAdminService.updateCourse(id, data);
+  }
+
+  // ========== Wall Categories ==========
+  @Get('wall-categories')
+  @ApiOperation({ summary: 'Get wall categories (Admin)' })
+  async getWallCategories() {
+    return this.cmsAdminService.getWallCategories();
+  }
+
+  @Post('wall-categories')
+  @ApiOperation({ summary: 'Create wall category (Admin)' })
+  async createWallCategory(@Body() data: any) {
+    return this.cmsAdminService.createWallCategory(data);
+  }
+
+  @Put('wall-categories/:id')
+  @ApiOperation({ summary: 'Update wall category (Admin)' })
+  async updateWallCategory(@Param('id') id: string, @Body() data: any) {
+    return this.cmsAdminService.updateWallCategory(id, data);
+  }
+
+  @Delete('wall-categories/:id')
+  @ApiOperation({ summary: 'Delete wall category (Admin)' })
+  async deleteWallCategory(@Param('id') id: string) {
+    return this.cmsAdminService.deleteWallCategory(id);
   }
 }

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Plus, Edit, Trash2, Loader2, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, BookOpen, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -20,14 +20,14 @@ export default function GeneralKnowledgePage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['general-knowledge', searchTerm],
-    queryFn: () => cmsApi.getCurrentAffairs({ search: searchTerm || undefined }), // Reuse current affairs endpoint
+    queryFn: () => cmsApi.getGeneralKnowledge({ search: searchTerm || undefined }),
   });
 
   const items = Array.isArray(data) ? data : (data?.data || []);
 
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => cmsApi.deleteCurrentAffair(id),
+    mutationFn: (id: string) => cmsApi.deleteGeneralKnowledge(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
       showToast('Article deleted successfully', 'success');
@@ -88,6 +88,24 @@ export default function GeneralKnowledgePage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Navigate to MCQ create with pre-filled data
+                                const params = new URLSearchParams({
+                                  categoryId: item.categoryId || '',
+                                  subCategoryId: item.metadata?.subCategoryId || '',
+                                  section: item.metadata?.section || '',
+                                  country: item.metadata?.country || '',
+                                  articleId: item.id,
+                                });
+                                navigate(`/cms/mcq/create?${params.toString()}`);
+                              }}
+                              title="Create MCQ from this article"
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"

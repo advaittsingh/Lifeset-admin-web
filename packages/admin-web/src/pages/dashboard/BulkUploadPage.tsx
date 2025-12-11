@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -8,6 +8,8 @@ import { Input } from '../../components/ui/input';
 import { ArrowLeft, Download, Upload, FileText, Image as ImageIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { institutesApi } from '../../services/api/institutes';
+import { cmsApi } from '../../services/api/cms';
+import { postsApi } from '../../services/api/posts';
 
 interface UploadedImage {
   id: number;
@@ -15,7 +17,7 @@ interface UploadedImage {
   date: string;
 }
 
-type UploadType = 'awarded' | 'specialisation' | 'none';
+type UploadType = 'awarded' | 'specialisation' | 'generalKnowledge' | 'mcq' | 'currentAffairs' | 'none';
 
 export default function BulkUploadPage() {
   const navigate = useNavigate();
@@ -28,6 +30,8 @@ export default function BulkUploadPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch categories and awardeds for CSV parsing
   const { data: categoriesData } = useQuery({
@@ -43,30 +47,27 @@ export default function BulkUploadPage() {
   });
   const awardeds = Array.isArray(awardedsData) ? awardedsData : (awardedsData?.data || []);
 
-  // Mock data for uploaded images - replace with actual API call
-  const { data: imagesData } = useQuery({
-    queryKey: ['uploaded-images', searchTerm, currentPage, itemsPerPage],
-    queryFn: async () => {
-      // This would be an actual API call
-      const mockImages: UploadedImage[] = [
-        { id: 7, name: 'f81dc505e12a211da1db8bf4edacec98.jpeg', date: '2025-11-20 01:50:07 pm' },
-        { id: 6, name: '534447db2b857639264b54def58d5eed.png', date: '2025-11-19 01:07:00 pm' },
-        { id: 5, name: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6.jpeg', date: '2025-11-18 12:30:45 pm' },
-        { id: 4, name: 'q7w8e9r0t1y2u3i4o5p6a7s8d9f0.png', date: '2025-11-17 10:15:30 am' },
-        { id: 3, name: 'z1x2c3v4b5n6m7a8s9d0f1g2h3j4.jpeg', date: '2025-11-16 03:20:15 pm' },
-        { id: 2, name: 'k5l6m7n8o9p0q1w2e3r4t5y6u7i8.png', date: '2025-11-15 02:45:00 pm' },
-        { id: 1, name: 'o9p0q1w2e3r4t5y6u7i8o9p0q1w2.jpeg', date: '2025-11-14 01:07:00 pm' },
-      ];
-      return { data: mockImages, total: mockImages.length };
-    },
+  // Wall categories for GK/Current Affairs mapping
+  const { data: wallCategoriesData } = useQuery({
+    queryKey: ['wall-categories-for-bulk'],
+    queryFn: () => postsApi.getWallCategories(),
   });
+  const wallCategories = Array.isArray(wallCategoriesData) ? wallCategoriesData : (wallCategoriesData?.data || []);
 
-  const images = imagesData?.data || [];
+  // MCQ categories
+  const { data: mcqCategoriesData } = useQuery({
+    queryKey: ['mcq-categories-for-bulk'],
+    queryFn: () => cmsApi.getMcqCategories(),
+  });
+  const mcqCategories = Array.isArray(mcqCategoriesData) ? mcqCategoriesData : (mcqCategoriesData?.data || []);
+
+  // Placeholder for uploaded images list (awaiting API wiring)
+  const images: UploadedImage[] = [];
   const filteredImages = images.filter((img: UploadedImage) =>
     img.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredImages.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredImages.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedImages = filteredImages.slice(startIndex, endIndex);
@@ -94,13 +95,26 @@ export default function BulkUploadPage() {
   };
 
   const handleCsvFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Block selection if no upload type is chosen to avoid confusion
+    if (uploadType === 'none') {
+      showToast('Please select an upload type first', 'error');
+      event.target.value = '';
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      if (
+        file.type === 'text/csv' ||
+        file.name.endsWith('.csv') ||
+        file.name.endsWith('.xlsx') ||
+        file.name.endsWith('.xls')
+      ) {
         setCsvFile(file);
         showToast('CSV file selected', 'success');
       } else {
         showToast('Please select a CSV or Excel file', 'error');
+        event.target.value = '';
       }
     }
   };
@@ -128,7 +142,7 @@ export default function BulkUploadPage() {
     }
 
     if (uploadType === 'none') {
-      showToast('Please select upload type (Awarded or Specialisation)', 'error');
+      showToast('Please select an upload type', 'error');
       return;
     }
 
@@ -242,6 +256,166 @@ export default function BulkUploadPage() {
           `Upload complete: ${successCount} succeeded, ${failCount} failed`,
           failCount > 0 ? 'warning' : 'success'
         );
+      } else if (uploadType === 'generalKnowledge') {
+        const titleIndex = headers.findIndex(h => h === 'title');
+        const descIndex = headers.findIndex(h => h === 'description');
+        const categoryIdIndex = headers.findIndex(h => h.includes('categoryid'));
+        const categoryNameIndex = headers.findIndex(h => h.includes('category') && h.includes('name'));
+        const fullArticleIndex = headers.findIndex(h => h.includes('fullarticle') || h.includes('full_article'));
+        const subCategoryIndex = headers.findIndex(h => h.includes('subcategory'));
+        const sectionIndex = headers.findIndex(h => h === 'section');
+        const countryIndex = headers.findIndex(h => h === 'country');
+        const imageIndex = headers.findIndex(h => h.includes('image'));
+
+        if (titleIndex === -1 || descIndex === -1) {
+          showToast('CSV must have "title" and "description" columns', 'error');
+          setUploadingCsv(false);
+          return;
+        }
+
+        const results: { success: boolean }[] = [];
+        for (const row of dataRows) {
+          try {
+            const title = row[titleIndex]?.trim();
+            if (!title) continue;
+            const description = row[descIndex]?.trim() || '';
+            let categoryId = '';
+
+            if (categoryIdIndex >= 0 && row[categoryIdIndex]?.trim()) {
+              categoryId = row[categoryIdIndex].trim();
+            } else if (categoryNameIndex >= 0 && row[categoryNameIndex]?.trim()) {
+              const categoryName = row[categoryNameIndex].trim();
+              const found = wallCategories.find((c: any) => c.name?.toLowerCase() === categoryName.toLowerCase());
+              if (found) categoryId = found.id;
+            }
+
+            await cmsApi.createGeneralKnowledge({
+              title,
+              description,
+              categoryId: categoryId || undefined,
+              images: imageIndex >= 0 && row[imageIndex]?.trim() ? [row[imageIndex].trim()] : [],
+              metadata: {
+                fullArticle: fullArticleIndex >= 0 ? row[fullArticleIndex]?.trim() : '',
+                category: categoryNameIndex >= 0 ? row[categoryNameIndex]?.trim() : '',
+                subCategory: subCategoryIndex >= 0 ? row[subCategoryIndex]?.trim() : '',
+                section: sectionIndex >= 0 ? row[sectionIndex]?.trim() : '',
+                country: countryIndex >= 0 ? row[countryIndex]?.trim() : '',
+              },
+            });
+            results.push({ success: true });
+          } catch (error) {
+            results.push({ success: false });
+          }
+        }
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.length - successCount;
+        showToast(`Upload complete: ${successCount} succeeded, ${failCount} failed`, failCount > 0 ? 'warning' : 'success');
+      } else if (uploadType === 'currentAffairs') {
+        const titleIndex = headers.findIndex(h => h === 'title');
+        const descIndex = headers.findIndex(h => h === 'description');
+        const categoryIdIndex = headers.findIndex(h => h.includes('categoryid'));
+        const categoryNameIndex = headers.findIndex(h => h.includes('category') && h.includes('name'));
+        const subCategoryIndex = headers.findIndex(h => h.includes('subcategory'));
+        const sectionIndex = headers.findIndex(h => h === 'section');
+        const countryIndex = headers.findIndex(h => h === 'country');
+        const imageIndex = headers.findIndex(h => h.includes('image'));
+
+        if (titleIndex === -1 || descIndex === -1) {
+          showToast('CSV must have "title" and "description" columns', 'error');
+          setUploadingCsv(false);
+          return;
+        }
+
+        const results: { success: boolean }[] = [];
+        for (const row of dataRows) {
+          try {
+            const title = row[titleIndex]?.trim();
+            if (!title) continue;
+            const description = row[descIndex]?.trim() || '';
+            let categoryId = '';
+
+            if (categoryIdIndex >= 0 && row[categoryIdIndex]?.trim()) {
+              categoryId = row[categoryIdIndex].trim();
+            } else if (categoryNameIndex >= 0 && row[categoryNameIndex]?.trim()) {
+              const categoryName = row[categoryNameIndex].trim();
+              const found = wallCategories.find((c: any) => c.name?.toLowerCase() === categoryName.toLowerCase());
+              if (found) categoryId = found.id;
+            }
+
+            await cmsApi.createCurrentAffair({
+              title,
+              description,
+              categoryId: categoryId || undefined,
+              images: imageIndex >= 0 && row[imageIndex]?.trim() ? [row[imageIndex].trim()] : [],
+              metadata: {
+                subCategoryId: subCategoryIndex >= 0 ? row[subCategoryIndex]?.trim() : '',
+                section: sectionIndex >= 0 ? row[sectionIndex]?.trim() : '',
+                country: countryIndex >= 0 ? row[countryIndex]?.trim() : '',
+                fullArticle: '',
+              },
+            });
+            results.push({ success: true });
+          } catch (error) {
+            results.push({ success: false });
+          }
+        }
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.length - successCount;
+        showToast(`Upload complete: ${successCount} succeeded, ${failCount} failed`, failCount > 0 ? 'warning' : 'success');
+      } else if (uploadType === 'mcq') {
+        const questionIndex = headers.findIndex(h => h === 'question');
+        const explanationIndex = headers.findIndex(h => h.includes('explanation'));
+        const categoryIdIndex = headers.findIndex(h => h.includes('categoryid'));
+        const categoryNameIndex = headers.findIndex(h => h.includes('category') && h.includes('name'));
+        const correctIndex = headers.findIndex(h => h.includes('correct'));
+        const optionIndexes = headers
+          .map((h, idx) => ({ h, idx }))
+          .filter(entry => entry.h.startsWith('option'));
+
+        if (questionIndex === -1 || optionIndexes.length < 2 || correctIndex === -1) {
+          showToast('MCQ CSV needs question, option1/2..., and correctAnswer columns', 'error');
+          setUploadingCsv(false);
+          return;
+        }
+
+        const results: { success: boolean }[] = [];
+        for (const row of dataRows) {
+          try {
+            const question = row[questionIndex]?.trim();
+            if (!question) continue;
+            const options = optionIndexes
+              .sort((a, b) => a.h.localeCompare(b.h))
+              .map(entry => row[entry.idx]?.trim())
+              .filter(opt => opt);
+            if (options.length < 2) continue;
+
+            const correctRaw = row[correctIndex]?.trim();
+            const correctAnswer = correctRaw ? Number(correctRaw) - 1 : 0;
+            let categoryId = '';
+
+            if (categoryIdIndex >= 0 && row[categoryIdIndex]?.trim()) {
+              categoryId = row[categoryIdIndex].trim();
+            } else if (categoryNameIndex >= 0 && row[categoryNameIndex]?.trim()) {
+              const catName = row[categoryNameIndex].trim();
+              const found = mcqCategories.find((c: any) => c.name?.toLowerCase() === catName.toLowerCase());
+              if (found) categoryId = found.id;
+            }
+
+            await cmsApi.createMcqQuestion({
+              question,
+              options: options.map((opt, idx) => ({ text: opt, isCorrect: idx === correctAnswer })),
+              correctAnswer,
+              categoryId: categoryId || undefined,
+              explanation: explanationIndex >= 0 ? row[explanationIndex]?.trim() : undefined,
+            });
+            results.push({ success: true });
+          } catch (error) {
+            results.push({ success: false });
+          }
+        }
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.length - successCount;
+        showToast(`Upload complete: ${successCount} succeeded, ${failCount} failed`, failCount > 0 ? 'warning' : 'success');
       }
 
       setCsvFile(null);
@@ -341,7 +515,7 @@ export default function BulkUploadPage() {
             <CardHeader>
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Upload CSV (Awarded/Specialisation)
+                Upload CSV (Awarded/Specialisation/Content)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -358,25 +532,35 @@ export default function BulkUploadPage() {
                   <option value="none">Select type...</option>
                   <option value="awarded">Awarded</option>
                   <option value="specialisation">Specialisation</option>
+                  <option value="generalKnowledge">General Knowledge</option>
+                  <option value="currentAffairs">Current Affairs</option>
+                  <option value="mcq">MCQ</option>
                 </select>
               </div>
               <div>
                 <input
+                  ref={csvInputRef}
                   type="file"
                   id="csv-upload"
                   accept=".csv,.xlsx,.xls"
                   onChange={handleCsvFileSelect}
                   className="hidden"
-                  disabled={uploadType === 'none'}
                 />
-                <label htmlFor="csv-upload" className="block">
-                  <Button variant="outline" className="w-full" asChild disabled={uploadType === 'none'}>
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choose File
-                    </span>
-                  </Button>
-                </label>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  type="button"
+                  onClick={() => {
+                    if (uploadType === 'none') {
+                      showToast('Please select an upload type first', 'error');
+                      return;
+                    }
+                    csvInputRef.current?.click();
+                  }}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose File
+                </Button>
                 <p className="text-sm text-slate-600 mt-2">
                   {csvFile ? csvFile.name : 'no file selected'}
                 </p>
@@ -412,6 +596,7 @@ export default function BulkUploadPage() {
             <CardContent className="space-y-4">
               <div>
                 <input
+                  ref={imageInputRef}
                   type="file"
                   id="image-upload"
                   accept="image/*"
@@ -419,14 +604,15 @@ export default function BulkUploadPage() {
                   onChange={handleImageFilesSelect}
                   className="hidden"
                 />
-                <label htmlFor="image-upload" className="block">
-                  <Button variant="outline" className="w-full" asChild>
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choose Files
-                    </span>
-                  </Button>
-                </label>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose Files
+                </Button>
                 <p className="text-sm text-slate-600 mt-2">
                   {imageFiles.length > 0 ? `${imageFiles.length} file(s) selected` : 'no files selected'}
                 </p>
@@ -499,7 +685,7 @@ export default function BulkUploadPage() {
                   {paginatedImages.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="text-center py-8 text-slate-500">
-                        No images found
+                        No images to display yet
                       </td>
                     </tr>
                   ) : (

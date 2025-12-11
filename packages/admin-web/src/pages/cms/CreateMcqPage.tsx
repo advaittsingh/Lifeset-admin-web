@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -13,6 +13,7 @@ import { cmsApi } from '../../services/api/cms';
 export default function CreateMcqPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
   const isEditMode = !!id;
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -32,6 +33,45 @@ export default function CreateMcqPage() {
   });
 
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
+
+  // Pre-fill category from URL params (from General Knowledge page)
+  useEffect(() => {
+    if (!isEditMode) {
+      const categoryParam = searchParams.get('category');
+      const subCategoryParam = searchParams.get('subCategory');
+      const sectionParam = searchParams.get('section');
+      const countryParam = searchParams.get('country');
+      const categoryIdParam = searchParams.get('categoryId');
+
+      if (categoryIdParam) {
+        setFormData(prev => ({ ...prev, categoryId: categoryIdParam }));
+      } else if (categoryParam) {
+        // Try to find matching MCQ category
+        const matchingCategory = categories.find((cat: any) => 
+          cat.name?.toLowerCase().includes(categoryParam.toLowerCase())
+        );
+        if (matchingCategory) {
+          setFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
+        }
+      }
+
+      // Pre-fill question with context if available
+      if (categoryParam || subCategoryParam || sectionParam || countryParam) {
+        const contextParts = [];
+        if (categoryParam) contextParts.push(`Category: ${categoryParam}`);
+        if (subCategoryParam) contextParts.push(`Sub Category: ${subCategoryParam}`);
+        if (sectionParam) contextParts.push(`Section: ${sectionParam}`);
+        if (countryParam) contextParts.push(`Country: ${countryParam}`);
+        
+        if (contextParts.length > 0 && !formData.question) {
+          setFormData(prev => ({
+            ...prev,
+            question: `Question related to ${contextParts.join(', ')}:\n\n`,
+          }));
+        }
+      }
+    }
+  }, [searchParams, categories, isEditMode]);
 
   // Fetch existing question if editing
   const { data: existingQuestion, isLoading: isLoadingQuestion } = useQuery({
