@@ -65,9 +65,9 @@ VITE_API_URL=http://localhost:3000/api/v1
 
 ## Prerequisites
 
-1. **Node.js 18+** installed
+1. **Node.js 24+** installed
    ```bash
-   node --version  # Should show 18.x or higher
+   node --version  # Should show 24.x or higher
    ```
 
 2. **Backend API running**
