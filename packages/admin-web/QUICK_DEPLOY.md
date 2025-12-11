@@ -135,7 +135,7 @@ Access at: `http://localhost:8080`
 ## Troubleshooting
 
 **Build fails?**
-- Check Node.js version (needs 24+)
+- Check Node.js version (needs 20+)
 - Run `npm install` in `packages/admin-web`
 - Check for TypeScript errors: `npm run build`
 

@@ -6,7 +6,7 @@ This guide covers multiple deployment options for the LifeSet Admin Panel.
 
 1. Ensure your backend API is deployed and accessible
 2. Have the backend API URL ready
-3. Node.js 24+ installed (for local builds)
+3. Node.js 20+ installed (for local builds)
 
 ## Environment Variables
 
@@ -248,7 +248,7 @@ If you encounter CORS errors, ensure your backend API has CORS configured to all
 
 ### Build Failures
 
-- Ensure Node.js version is 24 or higher
+- Ensure Node.js version is 20 or higher
 - Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
 - Check for TypeScript errors: `npm run build`
 

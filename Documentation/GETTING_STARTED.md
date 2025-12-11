@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Node.js >= 24.0.0
+- Node.js >= 20.0.0
 - npm >= 10.0.0
 - PostgreSQL >= 15
 - Redis >= 7

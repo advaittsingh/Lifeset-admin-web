@@ -2110,7 +2110,7 @@ export default () => ({
 
 **Dockerfile**:
 ```dockerfile
-FROM node:24-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 

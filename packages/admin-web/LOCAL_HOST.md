@@ -50,9 +50,9 @@ This script will:
 
 ## Prerequisites
 
-1. **Node.js 24+** installed
+1. **Node.js 20+** installed
    ```bash
-   node --version  # Should be 24 or higher
+   node --version  # Should be 20 or higher
    ```
 
 2. **Backend API running**

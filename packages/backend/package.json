@@ -28,6 +28,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@lifeset/shared": "*",
     "@nestjs/bullmq": "^10.0.1",
     "@nestjs/common": "^10.2.10",
     "@nestjs/config": "^3.1.1",
@@ -40,6 +41,7 @@
     "@nestjs/websockets": "^10.2.10",
     "@prisma/client": "^5.7.1",
     "@types/uuid": "^10.0.0",
+    "@vercel/node": "^3.0.7",
     "aws-sdk": "^2.1499.0",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.1.0",
