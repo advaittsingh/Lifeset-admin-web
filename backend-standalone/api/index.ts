@@ -54,10 +54,26 @@ async function createApp(): Promise<express.Application> {
     );
     app.use(compression());
 
-    // CORS - Allow all origins in serverless (can be restricted via env)
-    const corsOrigins = process.env.CORS_ORIGIN?.split(',') || ['*'];
+    // CORS - Configure allowed origins
+    // CORS_ORIGIN can be:
+    // - Comma-separated list: "https://admin.domain.com,https://admin-project.vercel.app"
+    // - "*" for all origins (development only)
+    // - Empty/undefined: defaults to allow all (for flexibility)
+    const corsOriginEnv = process.env.CORS_ORIGIN;
+    let corsOrigins: string[] | boolean = true; // Default: allow all
+    
+    if (corsOriginEnv) {
+      if (corsOriginEnv === '*') {
+        corsOrigins = true; // Allow all origins
+      } else {
+        corsOrigins = corsOriginEnv.split(',').map(origin => origin.trim());
+      }
+    }
+    
+    // In production, it's recommended to set CORS_ORIGIN explicitly
+    // Example: CORS_ORIGIN=https://admin.yourdomain.com,https://admin-project.vercel.app
     app.enableCors({
-      origin: corsOrigins.includes('*') ? true : corsOrigins,
+      origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
