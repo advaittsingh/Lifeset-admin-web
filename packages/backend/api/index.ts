@@ -8,7 +8,7 @@ import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from '../src/common/interceptors/logging.interceptor';
 import helmet from 'helmet';
-import * as compression from 'compression';
+import compression from 'compression';
 import express from 'express';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
