@@ -4,12 +4,13 @@ A comprehensive educational and career management platform connecting students, 
 
 ## Architecture
 
-This is a monorepo containing:
+This repository contains three standalone projects:
 
-- **backend** - NestJS API server with Prisma ORM, PostgreSQL, Redis, and BullMQ
-- **admin-web** - React + Vite admin panel with Tailwind CSS and Shadcn/UI
-- **mobile-app** - React Native + Expo mobile application
-- **shared** - Shared TypeScript types and utilities
+- **backend-standalone/** - NestJS API server with Prisma ORM, PostgreSQL, Redis, and BullMQ
+- **admin-web-standalone/** - React + Vite admin panel with Tailwind CSS and Shadcn/UI
+- **mobile-app-standalone/** - React Native + Expo mobile application
+
+Each project is completely independent and can be developed, deployed, and maintained separately.
 
 ## Prerequisites
 
@@ -21,60 +22,58 @@ This is a monorepo containing:
 
 ## Getting Started
 
-### Install Dependencies
+### Backend
 
 ```bash
+cd backend-standalone
 npm install
-```
-
-### Development
-
-Run all packages in development mode:
-
-```bash
 npm run dev
 ```
 
-Run specific package:
+See [backend-standalone/README.md](./backend-standalone/README.md) for detailed setup instructions.
+
+### Admin Web
 
 ```bash
-npm run backend:dev
-npm run admin:dev
-npm run mobile:dev
+cd admin-web-standalone
+npm install
+npm run dev
 ```
 
-### Build
+See [admin-web-standalone/README.md](./admin-web-standalone/README.md) for detailed setup instructions.
 
-Build all packages:
+### Mobile App
 
 ```bash
-npm run build
+cd mobile-app-standalone
+npm install
+npm start
 ```
 
-### Environment Setup
-
-Each package has its own `.env` file. See individual package READMEs for configuration details.
+See [mobile-app-standalone/README.md](./mobile-app-standalone/README.md) for detailed setup instructions.
 
 ## Project Structure
 
 ```
 .
-├── packages/
-│   ├── backend/          # NestJS backend
-│   ├── admin-web/        # React admin panel
-│   ├── mobile-app/       # React Native app
-│   └── shared/           # Shared types
-├── package.json
-├── turbo.json
+├── backend-standalone/     # Standalone NestJS backend
+├── admin-web-standalone/   # Standalone React admin panel
+├── mobile-app-standalone/  # Standalone React Native app
+├── Documentation/         # Project documentation
 └── README.md
 ```
 
+## Migration from Monorepo
+
+If you're migrating from the previous monorepo setup, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for details.
+
 ## Documentation
 
-- [Master Task List](./Master_Task%20List.md) - Complete development task breakdown
-- [Project Documentation (New Stack)](./PROJECT_DOCUMENTATION_NEW_STACK.md) - Technical documentation
+- [Migration Guide](./MIGRATION_GUIDE.md) - Guide for migrating from monorepo
+- [Standalone Projects Summary](./STANDALONE_PROJECTS_SUMMARY.md) - Quick reference
+- [Verification Checklist](./VERIFICATION_CHECKLIST.md) - Verification status
+- [Documentation](./Documentation/) - Additional project documentation
 
 ## License
 
 Proprietary
-

@@ -2,31 +2,9 @@
   "name": "lifeset-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "LifeSet Platform - Educational and Career Management System",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "clean": "turbo run clean",
-    "backend:dev": "turbo run dev --filter=backend",
-    "admin:dev": "turbo run dev --filter=admin-web",
-    "mobile:dev": "turbo run dev --filter=mobile-app"
-  },
-  "devDependencies": {
-    "turbo": "^1.10.16",
-    "typescript": "^5.2.2"
-  },
+  "description": "LifeSet Platform - Educational and Career Management System (Standalone Projects)",
   "engines": {
     "node": "20.x"
   },
-  "packageManager": "npm@10.0.0",
-  "overrides": {
-    "rimraf": "^5.0.5",
-    "glob": "^10.3.10",
-    "npmlog": "^7.0.1"
-  }
+  "packageManager": "npm@10.0.0"
 }
