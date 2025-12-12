@@ -198,3 +198,4 @@ RATE_LIMIT_MAX=100
 - **File Storage:** AWS S3, Cloudflare R2, Vercel Blob Storage
 - **Email:** SendGrid, Mailgun, Resend, AWS SES
 - **SMS:** Twilio, AWS SNS
+

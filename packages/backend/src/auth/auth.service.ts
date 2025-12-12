@@ -65,6 +65,8 @@ export class AuthService {
 
   async login(emailOrMobile: string, password: string) {
     try {
+      this.logger.log(`Login attempt for: ${emailOrMobile?.substring(0, 3)}***`);
+      
       // Validate JWT secrets are configured
       const jwtSecret = this.configService.get<string>('JWT_SECRET');
       const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
@@ -77,6 +79,14 @@ export class AuthService {
       if (!jwtRefreshSecret) {
         this.logger.error('JWT_REFRESH_SECRET is not configured');
         throw new InternalServerErrorException('Server configuration error: JWT_REFRESH_SECRET is missing');
+      }
+      
+      // Check database connection
+      try {
+        await this.prisma.$queryRaw`SELECT 1`;
+      } catch (dbCheckError: any) {
+        this.logger.error(`Database connection check failed: ${dbCheckError.message}`, dbCheckError.stack);
+        throw new InternalServerErrorException('Database connection failed. Please check DATABASE_URL environment variable.');
       }
 
       // Find user with proper error handling for database issues
@@ -162,7 +172,23 @@ export class AuthService {
       // Log unexpected errors with full details
       this.logger.error(`Unexpected error during login: ${error.message}`, error.stack);
       this.logger.error(`Error name: ${error.name}, Error code: ${error.code}`);
-      throw new InternalServerErrorException('An unexpected error occurred during login');
+      this.logger.error(`Error details: ${JSON.stringify({
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        stack: error.stack?.substring(0, 500), // First 500 chars of stack
+      })}`);
+      
+      // Provide more helpful error messages based on error type
+      if (error.code === 'P1001' || error.message?.includes('connect') || error.message?.includes('timeout')) {
+        throw new InternalServerErrorException('Database connection failed. Please check DATABASE_URL environment variable.');
+      }
+      
+      if (error.message?.includes('JWT') || error.message?.includes('token')) {
+        throw new InternalServerErrorException('Authentication service error. Please check JWT_SECRET and JWT_REFRESH_SECRET environment variables.');
+      }
+      
+      throw new InternalServerErrorException('An unexpected error occurred during login. Please try again later.');
     }
   }
 
