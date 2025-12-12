@@ -2,6 +2,12 @@
   "name": "lifeset-admin-web",
   "version": "1.0.0",
   "type": "module",
+  "private": true,
+  "description": "LifeSet Admin Panel - Web Application",
+  "engines": {
+    "node": "20.x"
+  },
+  "packageManager": "npm@10.0.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

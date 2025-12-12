@@ -9,10 +9,5 @@ coverage
 dist
 .next
 .turbo
-packages/*/dist
-packages/*/node_modules
-packages/backend/dist
-packages/admin-web/dist
-packages/mobile-app
 
 
