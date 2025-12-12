@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
+import { Select } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Plus, Edit, Trash2, Loader2, Building2, Users, BookOpen, Eye } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
@@ -18,16 +19,18 @@ export default function InstitutesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [formData, setFormData] = useState({
+    // Faculty Head Details
+    facultyHeadName: '',
+    facultyHeadEmail: '',
+    facultyHeadContact: '',
+    facultyHeadStatus: 'Active',
+    // Institute Details
     name: '',
-    type: '',
+    pincode: '',
+    district: '',
     city: '',
     state: '',
-    pincode: '',
     address: '',
-    website: '',
-    email: '',
-    phone: '',
-    description: '',
   });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -46,7 +49,16 @@ export default function InstitutesPage() {
       showToast('Institute created successfully', 'success');
       setIsCreateDialogOpen(false);
       setFormData({
-        name: '', type: '', city: '', state: '', pincode: '', address: '', website: '', email: '', phone: '', description: '',
+        facultyHeadName: '',
+        facultyHeadEmail: '',
+        facultyHeadContact: '',
+        facultyHeadStatus: 'Active',
+        name: '',
+        pincode: '',
+        district: '',
+        city: '',
+        state: '',
+        address: '',
       });
     },
   });
@@ -150,16 +162,16 @@ export default function InstitutesPage() {
                           onClick={() => {
                             setSelectedItem(institute);
                             setFormData({
-                              name: institute.name,
-                              type: institute.type || '',
+                              facultyHeadName: institute.facultyHeadName || '',
+                              facultyHeadEmail: institute.email || institute.facultyHeadEmail || '',
+                              facultyHeadContact: institute.phone || institute.facultyHeadContact || '',
+                              facultyHeadStatus: institute.isActive ? 'Active' : 'Inactive',
+                              name: institute.name || '',
+                              pincode: institute.pincode || '',
+                              district: institute.district || '',
                               city: institute.city || '',
                               state: institute.state || '',
-                              pincode: institute.pincode || '',
                               address: institute.address || '',
-                              website: institute.website || '',
-                              email: institute.email || '',
-                              phone: institute.phone || '',
-                              description: institute.description || '',
                             });
                             setIsEditDialogOpen(true);
                           }}
@@ -177,88 +189,288 @@ export default function InstitutesPage() {
 
         {/* Create/Edit Dialogs */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Institute</DialogTitle>
+              <DialogTitle>Register New Institute</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
-                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <div className="space-y-6">
+              {/* Faculty Head Details Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Faculty Head Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
+                    <Input 
+                      value={formData.facultyHeadName} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadName: e.target.value })} 
+                      placeholder="Enter faculty head name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Email Id *</label>
+                    <Input 
+                      type="email" 
+                      value={formData.facultyHeadEmail} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadEmail: e.target.value })} 
+                      placeholder="Enter email address"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Type</label>
-                  <Input value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Contact Number *</label>
+                    <Input 
+                      value={formData.facultyHeadContact} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadContact: e.target.value })} 
+                      placeholder="Enter contact number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Status</label>
+                    <Select 
+                      value={formData.facultyHeadStatus} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadStatus: e.target.value })}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Institute Details Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Institute Details</h3>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">City</label>
-                  <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Institute Name *</label>
+                  <Input 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+                    placeholder="Enter institute name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Pincode</label>
+                    <Input 
+                      value={formData.pincode} 
+                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} 
+                      placeholder="Enter pincode"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">District</label>
+                    <Input 
+                      value={formData.district} 
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value })} 
+                      placeholder="Enter district"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">City</label>
+                    <Input 
+                      value={formData.city} 
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })} 
+                      placeholder="Enter city"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">State</label>
+                    <Input 
+                      value={formData.state} 
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })} 
+                      placeholder="Enter state"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">State</label>
-                  <Input value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Address</label>
+                  <Textarea 
+                    value={formData.address} 
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+                    rows={3}
+                    placeholder="Enter full address"
+                  />
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Address</label>
-                <Textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Email</label>
-                  <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Phone</label>
-                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
               <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => createMutation.mutate(formData)}
-                disabled={createMutation.isPending || !formData.name}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                onClick={() => {
+                  // Prepare data for API - map form fields to backend expected format
+                  const apiData = {
+                    name: formData.name,
+                    email: formData.facultyHeadEmail,
+                    phone: formData.facultyHeadContact,
+                    city: formData.city,
+                    state: formData.state,
+                    pincode: formData.pincode,
+                    district: formData.district,
+                    address: formData.address,
+                    // Additional fields that backend might need
+                    facultyHeadName: formData.facultyHeadName,
+                    facultyHeadEmail: formData.facultyHeadEmail,
+                    facultyHeadContact: formData.facultyHeadContact,
+                    isActive: formData.facultyHeadStatus === 'Active',
+                  };
+                  createMutation.mutate(apiData);
+                }}
+                disabled={
+                  createMutation.isPending || 
+                  !formData.name || 
+                  !formData.facultyHeadName || 
+                  !formData.facultyHeadEmail || 
+                  !formData.facultyHeadContact
+                }
               >
-                {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Create'}
+                {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Submit'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Institute</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              {/* Same form fields as create */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
-                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <div className="space-y-6">
+              {/* Faculty Head Details Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Faculty Head Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
+                    <Input 
+                      value={formData.facultyHeadName} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadName: e.target.value })} 
+                      placeholder="Enter faculty head name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Email Id *</label>
+                    <Input 
+                      type="email" 
+                      value={formData.facultyHeadEmail} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadEmail: e.target.value })} 
+                      placeholder="Enter email address"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Type</label>
-                  <Input value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Contact Number *</label>
+                    <Input 
+                      value={formData.facultyHeadContact} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadContact: e.target.value })} 
+                      placeholder="Enter contact number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Status</label>
+                    <Select 
+                      value={formData.facultyHeadStatus} 
+                      onChange={(e) => setFormData({ ...formData, facultyHeadStatus: e.target.value })}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              {/* Add other fields similarly */}
+
+              {/* Institute Details Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Institute Details</h3>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Institute Name *</label>
+                  <Input 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+                    placeholder="Enter institute name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Pincode</label>
+                    <Input 
+                      value={formData.pincode} 
+                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} 
+                      placeholder="Enter pincode"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">District</label>
+                    <Input 
+                      value={formData.district} 
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value })} 
+                      placeholder="Enter district"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">City</label>
+                    <Input 
+                      value={formData.city} 
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })} 
+                      placeholder="Enter city"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">State</label>
+                    <Input 
+                      value={formData.state} 
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })} 
+                      placeholder="Enter state"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Address</label>
+                  <Textarea 
+                    value={formData.address} 
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+                    rows={3}
+                    placeholder="Enter full address"
+                  />
+                </div>
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
               <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => updateMutation.mutate({ id: selectedItem?.id, data: formData })}
-                disabled={updateMutation.isPending}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                onClick={() => {
+                  // Prepare data for API - map form fields to backend expected format
+                  const apiData = {
+                    name: formData.name,
+                    email: formData.facultyHeadEmail,
+                    phone: formData.facultyHeadContact,
+                    city: formData.city,
+                    state: formData.state,
+                    pincode: formData.pincode,
+                    district: formData.district,
+                    address: formData.address,
+                    // Additional fields that backend might need
+                    facultyHeadName: formData.facultyHeadName,
+                    facultyHeadEmail: formData.facultyHeadEmail,
+                    facultyHeadContact: formData.facultyHeadContact,
+                    isActive: formData.facultyHeadStatus === 'Active',
+                  };
+                  updateMutation.mutate({ id: selectedItem?.id, data: apiData });
+                }}
+                disabled={
+                  updateMutation.isPending || 
+                  !formData.name || 
+                  !formData.facultyHeadName || 
+                  !formData.facultyHeadEmail || 
+                  !formData.facultyHeadContact
+                }
               >
                 {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Update'}
               </Button>
