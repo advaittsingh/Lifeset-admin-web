@@ -112,3 +112,4 @@ After first deployment, update:
 - Check function logs in Vercel Dashboard
 - Review [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) for troubleshooting
 - Vercel Docs: https://vercel.com/docs
+

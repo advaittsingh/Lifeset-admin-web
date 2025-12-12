@@ -21,7 +21,7 @@
     "typescript": "^5.2.2"
   },
 "engines": {
-  "node": "18.x",
+  "node": "20.x",
   "npm": ">=10"
 },
   "packageManager": "npm@10.0.0",
