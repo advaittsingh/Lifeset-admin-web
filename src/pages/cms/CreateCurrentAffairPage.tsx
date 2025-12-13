@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { ArrowLeft, Save, Eye, Newspaper, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -348,14 +349,16 @@ export default function CreateCurrentAffairPage() {
               {/* Full Article */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
-                <Textarea
-                  placeholder="Write the complete article content..."
+                <RichTextEditor
                   value={formData.fullArticle}
-                  onChange={(e) => setFormData({ ...formData, fullArticle: e.target.value })}
-                  className="mt-1 min-h-[300px]"
-                  rows={15}
+                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
+                  placeholder="Write the complete article content with full formatting options..."
+                  minHeight="400px"
+                  className="mt-1"
                 />
-                <p className="text-xs text-slate-500 mt-1">Complete article content (optional)</p>
+                <p className="text-xs text-slate-500 mt-2">
+                  Complete article content (optional). Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.).
+                </p>
               </div>
 
               {/* Category Selection */}

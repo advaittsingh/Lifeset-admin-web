@@ -72,10 +72,11 @@ apiClient.interceptors.response.use(
       });
     }
     
-    if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
-    }
+    // Automatic logout on 401 removed - user will stay logged in
+    // if (error.response?.status === 401) {
+    //   useAuthStore.getState().logout();
+    //   window.location.href = '/login';
+    // }
     return Promise.reject(error);
   }
 );
