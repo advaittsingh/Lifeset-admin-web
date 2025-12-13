@@ -22,20 +22,9 @@ export default function CategoryDetailPage() {
   const [isCreateAwardedOpen, setIsCreateAwardedOpen] = useState(false);
   const [isEditAwardedOpen, setIsEditAwardedOpen] = useState(false);
   const [isDeleteAwardedOpen, setIsDeleteAwardedOpen] = useState(false);
-  const [isCreateSpecialisationOpen, setIsCreateSpecialisationOpen] = useState(false);
-  const [isEditSpecialisationOpen, setIsEditSpecialisationOpen] = useState(false);
-  const [isDeleteSpecialisationOpen, setIsDeleteSpecialisationOpen] = useState(false);
-  
   const [selectedAwarded, setSelectedAwarded] = useState<any>(null);
-  const [selectedSpecialisation, setSelectedSpecialisation] = useState<any>(null);
   
   const [awardedFormData, setAwardedFormData] = useState({
-    name: '',
-    description: '',
-    isActive: true,
-  });
-
-  const [specialisationFormData, setSpecialisationFormData] = useState({
     name: '',
     description: '',
     isActive: true,
@@ -59,13 +48,6 @@ export default function CategoryDetailPage() {
 
   const awardedList = Array.isArray(awardedData) ? awardedData : (awardedData?.data || []);
 
-  // Fetch specialisations for selected awarded (we'll fetch all and filter)
-  const { data: specialisationData } = useQuery({
-    queryKey: ['specialisations-all'],
-    queryFn: () => institutesApi.getSpecialisationData(),
-  });
-
-  const allSpecialisations = Array.isArray(specialisationData) ? specialisationData : (specialisationData?.data || []);
 
   // Create Awarded Mutation
   const createAwardedMutation = useMutation({
@@ -110,57 +92,6 @@ export default function CategoryDetailPage() {
     },
   });
 
-  // Create Specialisation Mutation
-  const createSpecialisationMutation = useMutation({
-    mutationFn: (data: any) => institutesApi.createSpecialisation({ ...data, awardedId: selectedAwarded?.id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-all'] });
-      queryClient.invalidateQueries({ queryKey: ['awarded', id] });
-      showToast('Specialisation created successfully', 'success');
-      setIsCreateSpecialisationOpen(false);
-      setSpecialisationFormData({ name: '', description: '', isActive: true });
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create specialisation';
-      showToast(String(errorMessage), 'error');
-    },
-  });
-
-  // Update Specialisation Mutation
-  const updateSpecialisationMutation = useMutation({
-    mutationFn: ({ id: specialisationId, data }: { id: string; data: any }) => 
-      institutesApi.updateSpecialisation(specialisationId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-all'] });
-      queryClient.invalidateQueries({ queryKey: ['awarded', id] });
-      showToast('Specialisation updated successfully', 'success');
-      setIsEditSpecialisationOpen(false);
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update specialisation';
-      showToast(String(errorMessage), 'error');
-    },
-  });
-
-  // Delete Specialisation Mutation
-  const deleteSpecialisationMutation = useMutation({
-    mutationFn: (specialisationId: string) => institutesApi.deleteSpecialisation(specialisationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-all'] });
-      queryClient.invalidateQueries({ queryKey: ['awarded', id] });
-      showToast('Specialisation deleted successfully', 'success');
-      setIsDeleteSpecialisationOpen(false);
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete specialisation';
-      showToast(String(errorMessage), 'error');
-    },
-  });
-
-  // Get specialisations for a specific awarded
-  const getSpecialisationsForAwarded = (awardedId: string) => {
-    return allSpecialisations.filter((spec: any) => spec.awardedId === awardedId);
-  };
 
   if (!category) {
     return (
@@ -215,7 +146,7 @@ export default function CategoryDetailPage() {
                   <span>•</span>
                   <span>
                     {awardedList.reduce((sum: number, a: any) => 
-                      sum + getSpecialisationsForAwarded(a.id).length, 0
+                      sum + (a._count?.specialisations || 0), 0
                     )} Specialisations
                   </span>
                 </div>
@@ -258,13 +189,13 @@ export default function CategoryDetailPage() {
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Awarded</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Description</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Specialisations</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Specialisations Count</th>
                       <th className="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {awardedList.map((awarded: any) => {
-                      const specialisations = getSpecialisationsForAwarded(awarded.id);
+                      const specialisationCount = awarded._count?.specialisations || 0;
                       return (
                         <tr key={awarded.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -295,85 +226,23 @@ export default function CategoryDetailPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-slate-600">
-                              {specialisations.length > 0 ? (
-                                <div className="space-y-2">
-                                  {specialisations.map((spec: any) => (
-                                    <div key={spec.id} className="flex items-center justify-between py-1 px-2 bg-slate-50 rounded border border-slate-200">
-                                      <div className="flex items-center gap-2 flex-1">
-                                        <Layers className="h-3 w-3 text-indigo-600" />
-                                        <span className="text-xs font-medium">{spec.name}</span>
-                                        {spec.isActive !== false ? (
-                                          <span className="px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded">Active</span>
-                                        ) : (
-                                          <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded">Inactive</span>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0"
-                                          onClick={() => {
-                                            setSelectedSpecialisation(spec);
-                                            setSpecialisationFormData({
-                                              name: spec.name,
-                                              description: spec.description || '',
-                                              isActive: spec.isActive !== false,
-                                            });
-                                            setIsEditSpecialisationOpen(true);
-                                          }}
-                                        >
-                                          <Edit className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                                          onClick={() => {
-                                            setSelectedSpecialisation(spec);
-                                            setIsDeleteSpecialisationOpen(true);
-                                          }}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full mt-2"
-                                    onClick={() => {
-                                      setSelectedAwarded(awarded);
-                                      setIsCreateSpecialisationOpen(true);
-                                    }}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Add Specialisation
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="text-center py-3 bg-slate-50 rounded border border-dashed border-slate-300">
-                                  <p className="text-xs text-slate-500 mb-2">No specialisations</p>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedAwarded(awarded);
-                                      setIsCreateSpecialisationOpen(true);
-                                    }}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Add First
-                                  </Button>
-                                </div>
-                              )}
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                {specialisationCount} Specialisations
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/institutes/awarded/${awarded.id}`)}
+                                className="hover:bg-blue-50 hover:border-blue-300"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -547,144 +416,6 @@ export default function CategoryDetailPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Create Specialisation Dialog */}
-        <Dialog open={isCreateSpecialisationOpen} onOpenChange={setIsCreateSpecialisationOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Specialisation</DialogTitle>
-              <p className="text-sm text-slate-600 mt-1">
-                For Awarded: <strong>{selectedAwarded?.name}</strong>
-              </p>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
-                <Input
-                  value={specialisationFormData.name}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, name: e.target.value })}
-                  placeholder="e.g., Computer Science, Mechanical Engineering"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea
-                  value={specialisationFormData.description}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Status</label>
-                <Select
-                  value={specialisationFormData.isActive ? 'Active' : 'Inactive'}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, isActive: e.target.value === 'Active' })}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateSpecialisationOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-gradient-to-r from-purple-600 to-indigo-600"
-                onClick={() => createSpecialisationMutation.mutate(specialisationFormData)}
-                disabled={createSpecialisationMutation.isPending || !specialisationFormData.name}
-              >
-                {createSpecialisationMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Specialisation Dialog */}
-        <Dialog open={isEditSpecialisationOpen} onOpenChange={setIsEditSpecialisationOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit Specialisation</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
-                <Input
-                  value={specialisationFormData.name}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea
-                  value={specialisationFormData.description}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Status</label>
-                <Select
-                  value={specialisationFormData.isActive ? 'Active' : 'Inactive'}
-                  onChange={(e) => setSpecialisationFormData({ ...specialisationFormData, isActive: e.target.value === 'Active' })}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditSpecialisationOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-gradient-to-r from-purple-600 to-indigo-600"
-                onClick={() => updateSpecialisationMutation.mutate({ id: selectedSpecialisation?.id, data: specialisationFormData })}
-                disabled={updateSpecialisationMutation.isPending || !specialisationFormData.name}
-              >
-                {updateSpecialisationMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  'Update'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Specialisation Dialog */}
-        <Dialog open={isDeleteSpecialisationOpen} onOpenChange={setIsDeleteSpecialisationOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Specialisation</DialogTitle>
-            </DialogHeader>
-            <p className="text-slate-600">
-              Are you sure you want to delete "{selectedSpecialisation?.name}"?
-            </p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDeleteSpecialisationOpen(false)}>Cancel</Button>
-              <Button
-                variant="destructive"
-                onClick={() => deleteSpecialisationMutation.mutate(selectedSpecialisation?.id)}
-                disabled={deleteSpecialisationMutation.isPending}
-              >
-                {deleteSpecialisationMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </AdminLayout>
   );
