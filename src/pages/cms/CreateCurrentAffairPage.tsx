@@ -68,13 +68,20 @@ export default function CreateCurrentAffairPage() {
   }, [categories]);
 
   // Calculate word count for description (handles HTML content)
+  // Uses DOMParser to safely extract text without executing scripts
   const getWordCount = (text: string) => {
     if (!text) return 0;
-    // Strip HTML tags and get text content
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = text;
-    const plainText = tempDiv.textContent || tempDiv.innerText || '';
-    return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    try {
+      // Use DOMParser to safely parse HTML without executing scripts
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const plainText = doc.body.textContent || doc.body.innerText || '';
+      return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    } catch (error) {
+      // Fallback: strip HTML tags using regex if DOMParser fails
+      const plainText = text.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ');
+      return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    }
   };
 
   const descriptionWordCount = getWordCount(formData.description);
@@ -265,7 +272,58 @@ export default function CreateCurrentAffairPage() {
   }
 
   return (
-    <AdminLayout>
+    <>
+      <style>{`
+        .article-preview-content p {
+          margin: 0.5rem 0;
+        }
+        .article-preview-content p:first-child {
+          margin-top: 0;
+        }
+        .article-preview-content p:last-child {
+          margin-bottom: 0;
+        }
+        .article-preview-content strong,
+        .article-preview-content b {
+          font-weight: 600;
+        }
+        .article-preview-content em,
+        .article-preview-content i {
+          font-style: italic;
+        }
+        .article-preview-content u {
+          text-decoration: underline;
+        }
+        .article-preview-content a {
+          color: #3b82f6;
+          text-decoration: underline;
+        }
+        .article-preview-content ul,
+        .article-preview-content ol {
+          margin: 0.5rem 0;
+          padding-left: 1.5rem;
+        }
+        .article-preview-content h1,
+        .article-preview-content h2,
+        .article-preview-content h3,
+        .article-preview-content h4,
+        .article-preview-content h5,
+        .article-preview-content h6 {
+          font-weight: 600;
+          margin: 0.75rem 0 0.5rem 0;
+        }
+        .article-preview-content h1 { font-size: 1.5rem; }
+        .article-preview-content h2 { font-size: 1.25rem; }
+        .article-preview-content h3 { font-size: 1.125rem; }
+        .article-preview-content blockquote {
+          border-left: 3px solid #cbd5e1;
+          padding-left: 1rem;
+          margin: 0.5rem 0;
+          font-style: italic;
+          color: #64748b;
+        }
+      `}</style>
+      <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -585,9 +643,16 @@ export default function CreateCurrentAffairPage() {
                         <div className="h-6 bg-slate-200 rounded animate-pulse"></div>
                       )}
                       {formData.description ? (
-                        <p className="text-sm text-slate-600 line-clamp-4 whitespace-pre-wrap">
-                          {formData.description}
-                        </p>
+                        <div 
+                          className="text-sm text-slate-600 line-clamp-4 article-preview-content"
+                          style={{ 
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 4,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: formData.description }}
+                        />
                       ) : (
                         <div className="space-y-2">
                           <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
@@ -704,6 +769,7 @@ export default function CreateCurrentAffairPage() {
         </DialogContent>
       </Dialog>
     </AdminLayout>
+    </>
   );
 }
 
