@@ -196,13 +196,6 @@ export default function CategoryDetailPage() {
               </p>
             </div>
           </div>
-          <Button
-            className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => setIsCreateAwardedOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Awarded
-          </Button>
         </div>
 
         {/* Category Info Card */}
@@ -231,187 +224,192 @@ export default function CategoryDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Awarded List */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900">Awarded</h2>
-          
-          {isLoadingAwarded ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        {/* Awarded Table */}
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl">Awarded</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateAwardedOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Awarded
+              </Button>
             </div>
-          ) : awardedList.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-12">
-                  <Award className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600 mb-2">No awarded found</p>
-                  <p className="text-sm text-slate-500">Create your first awarded to get started</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {awardedList.map((awarded: any) => {
-                const specialisations = getSpecialisationsForAwarded(awarded.id);
-                return (
-                  <Card key={awarded.id} className="border-0 shadow-md">
-                    <CardHeader className="border-b border-slate-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600">
-                            <Award className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{awarded.name}</CardTitle>
-                            {awarded.description && (
-                              <p className="text-sm text-slate-600 mt-1">{awarded.description}</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoadingAwarded ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : awardedList.length === 0 ? (
+              <div className="text-center py-12">
+                <Award className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-slate-600 mb-2">No awarded found</p>
+                <p className="text-sm text-slate-500">Create your first awarded to get started</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Awarded</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Specialisations</th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {awardedList.map((awarded: any) => {
+                      const specialisations = getSpecialisationsForAwarded(awarded.id);
+                      return (
+                        <tr key={awarded.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600">
+                                <Award className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-slate-900">{awarded.name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-slate-600 max-w-md">
+                              {awarded.description || <span className="text-slate-400 italic">No description</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {awarded.isActive !== false ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                                <XCircle className="h-3 w-3" />
+                                Inactive
+                              </span>
                             )}
-                          </div>
-                          {awarded.isActive !== false ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
-                              <XCircle className="h-3 w-3" />
-                              Inactive
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAwarded(awarded);
-                              setIsCreateSpecialisationOpen(true);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Specialisation
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAwarded(awarded);
-                              setAwardedFormData({
-                                name: awarded.name,
-                                description: awarded.description || '',
-                                isActive: awarded.isActive !== false,
-                              });
-                              setIsEditAwardedOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAwarded(awarded);
-                              setIsDeleteAwardedOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      {/* Specialisations for this awarded */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                            <Layers className="h-4 w-4" />
-                            Specialisations ({specialisations.length})
-                          </h3>
-                        </div>
-                        {specialisations.length === 0 ? (
-                          <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-                            <Layers className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                            <p className="text-sm text-slate-500">No specialisations yet</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-2"
-                              onClick={() => {
-                                setSelectedAwarded(awarded);
-                                setIsCreateSpecialisationOpen(true);
-                              }}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add First Specialisation
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {specialisations.map((spec: any) => (
-                              <Card key={spec.id} className="border border-slate-200 shadow-sm">
-                                <CardContent className="pt-4 pb-3">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <Layers className="h-4 w-4 text-indigo-600" />
-                                        <h4 className="font-medium text-sm">{spec.name}</h4>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-slate-600">
+                              {specialisations.length > 0 ? (
+                                <div className="space-y-2">
+                                  {specialisations.map((spec: any) => (
+                                    <div key={spec.id} className="flex items-center justify-between py-1 px-2 bg-slate-50 rounded border border-slate-200">
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <Layers className="h-3 w-3 text-indigo-600" />
+                                        <span className="text-xs font-medium">{spec.name}</span>
+                                        {spec.isActive !== false ? (
+                                          <span className="px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded">Active</span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded">Inactive</span>
+                                        )}
                                       </div>
-                                      {spec.description && (
-                                        <p className="text-xs text-slate-600 line-clamp-2">{spec.description}</p>
-                                      )}
-                                      {spec.isActive !== false ? (
-                                        <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
-                                          Active
-                                        </span>
-                                      ) : (
-                                        <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
-                                          Inactive
-                                        </span>
-                                      )}
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => {
+                                            setSelectedSpecialisation(spec);
+                                            setSpecialisationFormData({
+                                              name: spec.name,
+                                              description: spec.description || '',
+                                              isActive: spec.isActive !== false,
+                                            });
+                                            setIsEditSpecialisationOpen(true);
+                                          }}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                          onClick={() => {
+                                            setSelectedSpecialisation(spec);
+                                            setIsDeleteSpecialisationOpen(true);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-7 p-0"
-                                        onClick={() => {
-                                          setSelectedSpecialisation(spec);
-                                          setSpecialisationFormData({
-                                            name: spec.name,
-                                            description: spec.description || '',
-                                            isActive: spec.isActive !== false,
-                                          });
-                                          setIsEditSpecialisationOpen(true);
-                                        }}
-                                      >
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                                        onClick={() => {
-                                          setSelectedSpecialisation(spec);
-                                          setIsDeleteSpecialisationOpen(true);
-                                        }}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                                  ))}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={() => {
+                                      setSelectedAwarded(awarded);
+                                      setIsCreateSpecialisationOpen(true);
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Specialisation
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="text-center py-3 bg-slate-50 rounded border border-dashed border-slate-300">
+                                  <p className="text-xs text-slate-500 mb-2">No specialisations</p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedAwarded(awarded);
+                                      setIsCreateSpecialisationOpen(true);
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add First
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAwarded(awarded);
+                                  setAwardedFormData({
+                                    name: awarded.name,
+                                    description: awarded.description || '',
+                                    isActive: awarded.isActive !== false,
+                                  });
+                                  setIsEditAwardedOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAwarded(awarded);
+                                  setIsDeleteAwardedOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Create Awarded Dialog */}
         <Dialog open={isCreateAwardedOpen} onOpenChange={setIsCreateAwardedOpen}>
