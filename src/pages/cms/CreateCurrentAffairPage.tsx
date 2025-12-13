@@ -67,9 +67,14 @@ export default function CreateCurrentAffairPage() {
     setSubCategoryOptions(Array.from(subs));
   }, [categories]);
 
-  // Calculate word count for description
+  // Calculate word count for description (handles HTML content)
   const getWordCount = (text: string) => {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (!text) return 0;
+    // Strip HTML tags and get text content
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = text;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
 
   const descriptionWordCount = getWordCount(formData.description);
@@ -333,17 +338,21 @@ export default function CreateCurrentAffairPage() {
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">
                   Description * (200-300 words)
                 </label>
-                <Textarea
-                  placeholder="Write a brief description (200-300 words)..."
+                <RichTextEditor
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1 min-h-[150px]"
-                  rows={6}
-                  maxLength={2000}
+                  onChange={(value) => setFormData({ ...formData, description: value })}
+                  placeholder="Write a brief description (200-300 words) with full formatting options..."
+                  minHeight="200px"
+                  className="mt-1"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  {formData.description.split(/\s+/).filter(Boolean).length} words (recommended: 200-300)
-                </p>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {descriptionWordCount} words {!isDescriptionValid && `(Requires 200-300 words)`}
+                  </p>
+                  {isDescriptionValid && (
+                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
+                  )}
+                </div>
               </div>
 
               {/* Full Article */}
