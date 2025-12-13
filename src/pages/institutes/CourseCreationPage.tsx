@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Select } from '../../components/ui/select';
 import { Plus, Edit, Trash2, Loader2, BookOpen, ArrowLeft } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
@@ -14,16 +15,12 @@ import { useToast } from '../../contexts/ToastContext';
 export default function CourseCreationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     categoryId: '',
-    duration: '',
     description: '',
-    fees: '',
-    eligibility: '',
   });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -42,15 +39,6 @@ export default function CourseCreationPage() {
   const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => institutesApi.createCourse(id!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['institute-courses'] });
-      showToast('Course created successfully', 'success');
-      setIsCreateDialogOpen(false);
-      setFormData({ name: '', categoryId: '', duration: '', description: '', fees: '', eligibility: '' });
-    },
-  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id: courseId, data }: { id: string; data: any }) => institutesApi.updateCourse(courseId, data),
@@ -77,7 +65,7 @@ export default function CourseCreationPage() {
           </div>
           <Button
             className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => navigate(`/institutes/${id}/courses/create`)}
           >
             <Plus className="mr-2 h-4 w-4" />
             Create Course
@@ -107,11 +95,8 @@ export default function CourseCreationPage() {
                           {course.category && (
                             <p className="text-sm text-slate-500 mb-2">{course.category.name}</p>
                           )}
-                          {course.duration && (
-                            <p className="text-sm text-slate-600 mb-1">Duration: {course.duration}</p>
-                          )}
-                          {course.fees && (
-                            <p className="text-sm text-slate-600 mb-1">Fees: ₹{course.fees}</p>
+                          {course.description && (
+                            <p className="text-sm text-slate-600 mb-2 line-clamp-2">{course.description}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -123,10 +108,7 @@ export default function CourseCreationPage() {
                               setFormData({
                                 name: course.name,
                                 categoryId: course.categoryId || '',
-                                duration: course.duration || '',
                                 description: course.description || '',
-                                fees: course.fees?.toString() || '',
-                                eligibility: course.eligibility || '',
                               });
                               setIsEditDialogOpen(true);
                             }}
@@ -143,111 +125,22 @@ export default function CourseCreationPage() {
           </CardContent>
         </Card>
 
-        {/* Create/Edit Dialogs */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Course</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Course Name *</label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Category *</label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Duration</label>
-                  <Input
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    placeholder="e.g., 3 years"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Fees</label>
-                  <Input
-                    type="number"
-                    value={formData.fees}
-                    onChange={(e) => setFormData({ ...formData, fees: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Eligibility</label>
-                <Textarea
-                  value={formData.eligibility}
-                  onChange={(e) => setFormData({ ...formData, eligibility: e.target.value })}
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => createMutation.mutate({
-                  ...formData,
-                  fees: formData.fees ? parseFloat(formData.fees) : undefined,
-                })}
-                disabled={createMutation.isPending || !formData.name || !formData.categoryId}
-              >
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
+        {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Course</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {/* Same form fields as create */}
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">Course Name *</label>
                 <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">Category *</label>
-                <select
+                <Select
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md"
                 >
                   <option value="">Select Category</option>
                   {categories.map((cat: any) => (
@@ -255,17 +148,7 @@ export default function CourseCreationPage() {
                       {cat.name}
                     </option>
                   ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Duration</label>
-                  <Input value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Fees</label>
-                  <Input type="number" value={formData.fees} onChange={(e) => setFormData({ ...formData, fees: e.target.value })} />
-                </div>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
@@ -278,10 +161,7 @@ export default function CourseCreationPage() {
                 className="bg-gradient-to-r from-blue-600 to-indigo-600"
                 onClick={() => updateMutation.mutate({
                   id: selectedCourse?.id,
-                  data: {
-                    ...formData,
-                    fees: formData.fees ? parseFloat(formData.fees) : undefined,
-                  },
+                  data: formData,
                 })}
                 disabled={updateMutation.isPending}
               >

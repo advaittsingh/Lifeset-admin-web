@@ -41,6 +41,7 @@ import CreateInstitutePage from './pages/institutes/CreateInstitutePage';
 import InstituteDashboardPage from './pages/institutes/InstituteDashboardPage';
 import InstituteReportsPage from './pages/institutes/InstituteReportsPage';
 import CourseCreationPage from './pages/institutes/CourseCreationPage';
+import CreateCoursePage from './pages/institutes/CreateCoursePage';
 import InstituteLandingPage from './pages/institutes/InstituteLandingPage';
 import InstituteSearchPage from './pages/institutes/InstituteSearchPage';
 
@@ -448,6 +449,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <CourseCreationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/institutes/:id/courses/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCoursePage />
             </ProtectedRoute>
           }
         />
