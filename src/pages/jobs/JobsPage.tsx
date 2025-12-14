@@ -320,7 +320,7 @@ export default function JobsPage() {
                 )}
               </DialogDescription>
             </DialogHeader>
-            {selectedJob && (
+            {selectedJob ? (
               <div className="space-y-4">
                 {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
@@ -497,7 +497,7 @@ export default function JobsPage() {
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
                 Close

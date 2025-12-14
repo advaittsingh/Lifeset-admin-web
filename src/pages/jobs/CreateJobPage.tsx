@@ -66,10 +66,10 @@ export default function CreateJobPage() {
     },
   });
 
-  // Fetch courses and colleges for private filters
-  const { data: coursesData } = useQuery({
-    queryKey: ['courses'],
-    queryFn: () => institutesApi.getCourses(),
+  // Fetch course categories and colleges for private filters
+  const { data: courseCategoriesData } = useQuery({
+    queryKey: ['course-categories'],
+    queryFn: () => institutesApi.getCourseMasterData(),
   });
 
   const { data: collegesData } = useQuery({
@@ -77,12 +77,12 @@ export default function CreateJobPage() {
     queryFn: () => institutesApi.getInstitutes(),
   });
 
-  const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
+  const courseCategoriesList = Array.isArray(courseCategoriesData) ? courseCategoriesData : (courseCategoriesData?.data || []);
   const colleges = Array.isArray(collegesData) ? collegesData : (collegesData?.data || []);
 
-  // Get unique course categories
-  const courseCategories = Array.from(new Set(
-    courses.map((course: any) => course.category?.name || course.categoryName).filter(Boolean)
+  // Get unique course category names
+  const courseCategories: string[] = Array.from(new Set(
+    courseCategoriesList.map((cat: any) => cat.name).filter((name: any): name is string => Boolean(name))
   ));
 
   // Fetch existing job if editing
@@ -611,21 +611,16 @@ export default function CreateJobPage() {
                       </div>
                       <div>
                         <label className="text-xs text-slate-600 mb-1 block">Select Course</label>
-                        <select
+                        <Input
+                          placeholder="Enter course name or ID"
                           value={formData.privateFilters.selectCourse}
                           onChange={(e) => setFormData(prev => ({
                             ...prev,
                             privateFilters: { ...prev.privateFilters, selectCourse: e.target.value }
                           }))}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">Select Course</option>
-                          {courses.map((course: any) => (
-                            <option key={course.id} value={course.id}>
-                              {course.name}
-                            </option>
-                          ))}
-                        </select>
+                          className="w-full"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">Enter course name or ID</p>
                       </div>
                       <div>
                         <label className="text-xs text-slate-600 mb-1 block">Select Courses Main Category</label>
