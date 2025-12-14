@@ -84,26 +84,7 @@ export default function CreateGeneralKnowledgePage() {
 
   const mcqCategories = Array.isArray(mcqCategoriesData) ? mcqCategoriesData : (mcqCategoriesData?.data || []);
 
-  // Normalise sub-category options from categories list
-  useEffect(() => {
-    const subs = new Set<string>();
-    categories?.forEach((cat: any) => {
-      if (Array.isArray(cat?.subCategories)) {
-        cat.subCategories.forEach((sub: any) => {
-          const label =
-            typeof sub === 'string'
-              ? sub
-              : sub?.name || sub?.label || sub?.value || sub?.title;
-          if (label) subs.add(label);
-        });
-      }
-      const metaSub = cat?.metadata?.subCategory;
-      if (typeof metaSub === 'string' && metaSub.trim()) {
-        subs.add(metaSub.trim());
-      }
-    });
-    setSubCategoryOptions(Array.from(subs));
-  }, [categories]);
+  // Sub-category options removed - sub-categories are now simple text input
 
   // Fetch existing item if editing
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
