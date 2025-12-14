@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -45,21 +45,35 @@ export default function WallCategoriesPage() {
   const allCategories = categoriesData?.data || [];
   
   // Filter to show only top-level categories (no parentCategoryId)
-  const topLevelCategories = allCategories.filter((cat: any) => 
-    !cat.metadata?.parentCategoryId && !cat.parentCategoryId
-  );
+  const topLevelCategories = useMemo(() => {
+    return allCategories.filter((cat: any) => {
+      const hasParent = cat.metadata?.parentCategoryId || 
+                       cat.parentCategoryId || 
+                       cat.parentCategory?.id ||
+                       (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id);
+      return !hasParent;
+    });
+  }, [allCategories]);
   
-  const filteredCategories = topLevelCategories.filter((cat: any) =>
-    cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCategories = useMemo(() => {
+    return topLevelCategories.filter((cat: any) =>
+      cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [topLevelCategories, searchTerm]);
 
   // Get sub-categories for selected category
-  const subCategories = selectedCategory 
-    ? allCategories.filter((cat: any) => 
-        cat.metadata?.parentCategoryId === selectedCategory.id || 
-        cat.parentCategoryId === selectedCategory.id
-      )
-    : [];
+  // Check multiple possible locations for parentCategoryId
+  const subCategories = useMemo(() => {
+    if (!selectedCategory) return [];
+    
+    return allCategories.filter((cat: any) => {
+      const parentId = cat.metadata?.parentCategoryId || 
+                      cat.parentCategoryId || 
+                      cat.parentCategory?.id ||
+                      (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id);
+      return parentId === selectedCategory.id;
+    });
+  }, [allCategories, selectedCategory]);
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => postsApi.createWallCategory({
@@ -70,6 +84,7 @@ export default function WallCategoriesPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      queryClient.refetchQueries({ queryKey: ['wall-categories'] });
       showToast('Category created successfully', 'success');
       setIsCreateDialogOpen(false);
       setFormData({ categoryFor: '', name: '', status: 'active' });
@@ -84,13 +99,19 @@ export default function WallCategoriesPage() {
       parentCategoryId: selectedCategory?.id,
       isActive: data.status === 'active',
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+    onSuccess: async (response) => {
       showToast('Sub-category created successfully', 'success');
       setIsCreateSubCategoryDialogOpen(false);
       setSubCategoryFormData({ name: '', status: 'active' });
+      
+      // Invalidate and refetch to get the updated list
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories'] });
     },
-    onError: () => showToast('Failed to create sub-category', 'error'),
+    onError: (error: any) => {
+      console.error('Error creating sub-category:', error);
+      showToast('Failed to create sub-category', 'error');
+    },
   });
 
   const handleCreate = () => {

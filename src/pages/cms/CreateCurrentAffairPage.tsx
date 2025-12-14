@@ -520,58 +520,75 @@ export default function CreateCurrentAffairPage() {
                 <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
               </div>
 
-              {/* Category Selection */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category *</label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Categories are managed in Dashboard → Wall Categories
-                </p>
+              {/* Category Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Category *</label>
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Categories are managed in Dashboard → Wall Categories
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Sub Category</label>
+                  <Input
+                    placeholder="Enter sub-category (optional)"
+                    value={formData.subCategoryId}
+                    onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Enter a sub-category name if needed
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
+                  <Input
+                    placeholder="Enter section"
+                    value={formData.section}
+                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Country *</label>
+                  <Input
+                    placeholder="Enter country"
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
-              {/* Sub-Category */}
+              {/* Post Type */}
               <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Sub-Category</label>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Post Type *</label>
                 <Input
-                  placeholder="Enter sub-category (optional)"
-                  value={formData.subCategoryId}
-                  onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
-                  className="w-full"
+                  value={formData.postType}
+                  disabled
+                  className="mt-1 bg-slate-50"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Enter a sub-category name if needed
-                </p>
               </div>
 
-              {/* Section */}
+              {/* Headline */}
               <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Headline *</label>
                 <Input
-                  placeholder="Enter section"
-                  value={formData.section}
-                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Country */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Country</label>
-                <Input
-                  placeholder="Enter country"
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  placeholder="Enter headline"
+                  value={formData.headline}
+                  onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
                   className="mt-1"
                 />
               </div>
@@ -591,6 +608,60 @@ export default function CreateCurrentAffairPage() {
                 <p className="text-xs text-slate-500 mt-1">
                   The date when this current affair occurred or was published
                 </p>
+              </div>
+
+              {/* Event Date for Notification */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Event Date for Notification</label>
+                <div className="space-y-2">
+                  {formData.eventDates.map((date, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={date}
+                        onChange={(e) => {
+                          const newDates = [...formData.eventDates];
+                          newDates[index] = e.target.value;
+                          setFormData({ ...formData, eventDates: newDates });
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newDates = formData.eventDates.filter((_, i) => i !== index);
+                          setFormData({ ...formData, eventDates: newDates });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
+                    }}
+                  >
+                    Add More Dates
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Notifications will be sent automatically on these dates each year
+                </p>
+              </div>
+
+              {/* Event Year Range */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Event Year Range</label>
+                <Input
+                  placeholder="e.g., 2020-2024"
+                  value={formData.eventYearRange}
+                  onChange={(e) => setFormData({ ...formData, eventYearRange: e.target.value })}
+                  className="mt-1"
+                />
               </div>
 
               {/* Location */}
@@ -631,6 +702,123 @@ export default function CreateCurrentAffairPage() {
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Enter the geographical coordinates for this current affair
+                </p>
+              </div>
+
+              {/* State, District, City */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">State</label>
+                  <Input
+                    placeholder="Enter state"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">District</label>
+                  <Input
+                    placeholder="Enter district"
+                    value={formData.district}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">City</label>
+                  <Input
+                    placeholder="Enter city"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Targeted Keywords */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Targeted Keywords</label>
+                <Input
+                  placeholder="Enter keywords separated by commas"
+                  value={formData.targetedKeywords}
+                  onChange={(e) => setFormData({ ...formData, targetedKeywords: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Description (Max 60 words) */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Description * (Max 60 words)
+                </label>
+                <RichTextEditor
+                  value={formData.description}
+                  onChange={(value) => {
+                    // Limit to 60 words
+                    const wordCount = getWordCount(value);
+                    if (wordCount > 60) {
+                      // Truncate to 60 words
+                      const parser = new DOMParser();
+                      const doc = parser.parseFromString(value, 'text/html');
+                      const plainText = doc.body.textContent || doc.body.innerText || '';
+                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+                      
+                      if (words.length > 60) {
+                        const truncatedWords = words.slice(0, 60);
+                        const truncatedText = truncatedWords.join(' ');
+                        
+                        // If original had HTML, try to preserve structure by replacing text content
+                        // Otherwise, just use the truncated plain text
+                        let truncatedValue = value;
+                        if (value.includes('<')) {
+                          // Find the text content in the HTML and replace it
+                          const body = doc.body;
+                          if (body) {
+                            body.textContent = truncatedText;
+                            truncatedValue = body.innerHTML || truncatedText;
+                          } else {
+                            truncatedValue = truncatedText;
+                          }
+                        } else {
+                          truncatedValue = truncatedText;
+                        }
+                        
+                        setFormData({ ...formData, description: truncatedValue });
+                        showToast('Description limited to 60 words', 'info');
+                      } else {
+                        setFormData({ ...formData, description: value });
+                      }
+                    } else {
+                      setFormData({ ...formData, description: value });
+                    }
+                  }}
+                  placeholder="Write a brief description (max 60 words) with full formatting options..."
+                  minHeight="200px"
+                  className="mt-1"
+                />
+                <div className="mt-2 flex items-center justify-between">
+                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
+                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
+                  </p>
+                  {isDescriptionValid && (
+                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Full Article */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
+                <RichTextEditor
+                  value={formData.fullArticle}
+                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
+                  placeholder="Write the complete article content with full formatting options..."
+                  minHeight="400px"
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary (max 60 words).
                 </p>
               </div>
 
@@ -723,81 +911,6 @@ export default function CreateCurrentAffairPage() {
                     </div>
                   </details>
                 </div>
-              </div>
-
-              {/* Description (Max 60 words) */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                  Description * (Max 60 words)
-                </label>
-                <RichTextEditor
-                  value={formData.description}
-                  onChange={(value) => {
-                    // Limit to 60 words
-                    const wordCount = getWordCount(value);
-                    if (wordCount > 60) {
-                      // Truncate to 60 words
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(value, 'text/html');
-                      const plainText = doc.body.textContent || doc.body.innerText || '';
-                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
-                      
-                      if (words.length > 60) {
-                        const truncatedWords = words.slice(0, 60);
-                        const truncatedText = truncatedWords.join(' ');
-                        
-                        // If original had HTML, try to preserve structure by replacing text content
-                        // Otherwise, just use the truncated plain text
-                        let truncatedValue = value;
-                        if (value.includes('<')) {
-                          // Find the text content in the HTML and replace it
-                          const body = doc.body;
-                          if (body) {
-                            body.textContent = truncatedText;
-                            truncatedValue = body.innerHTML || truncatedText;
-                          } else {
-                            truncatedValue = truncatedText;
-                          }
-                        } else {
-                          truncatedValue = truncatedText;
-                        }
-                        
-                        setFormData({ ...formData, description: truncatedValue });
-                        showToast('Description limited to 60 words', 'info');
-                      } else {
-                        setFormData({ ...formData, description: value });
-                      }
-                    } else {
-                      setFormData({ ...formData, description: value });
-                    }
-                  }}
-                  placeholder="Write a brief description (max 60 words) with full formatting options..."
-                  minHeight="200px"
-                  className="mt-1"
-                />
-                <div className="mt-2 flex items-center justify-between">
-                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
-                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
-                  </p>
-                  {isDescriptionValid && (
-                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Full Article */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
-                <RichTextEditor
-                  value={formData.fullArticle}
-                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
-                  placeholder="Write the complete article content with full formatting options..."
-                  minHeight="400px"
-                  className="mt-1"
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                  Complete article content (optional). Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.).
-                </p>
               </div>
 
               {/* Action Buttons */}
