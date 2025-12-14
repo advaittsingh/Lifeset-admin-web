@@ -316,7 +316,7 @@ export default function JobsPage() {
               <DialogDescription>
                 {(selectedJob?.post as any)?.metadata?.companyName || selectedJob?.company?.companyName || 'Company'} • {selectedJob?.location || 'Location not specified'}
                 {(selectedJob?.post as any)?.metadata?.industry && (
-                  <span> • {(selectedJob.post as any).metadata.industry}</span>
+                  <span> • {(selectedJob?.post as any)?.metadata?.industry}</span>
                 )}
               </DialogDescription>
             </DialogHeader>
