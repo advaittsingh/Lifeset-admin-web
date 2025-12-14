@@ -21,10 +21,12 @@ export default function WallCategoriesPage() {
   const [formData, setFormData] = useState({ 
     categoryFor: '', 
     name: '', 
+    description: '',
     status: 'active' 
   });
   const [subCategoryFormData, setSubCategoryFormData] = useState({
     name: '',
+    description: '',
     status: 'active'
   });
 
@@ -55,23 +57,16 @@ export default function WallCategoriesPage() {
   const allCategories = categoriesData?.data || [];
   
   // Filter to show only top-level categories (no parentCategoryId)
+  // According to API docs: parentCategoryId is null for top-level categories
   const topLevelCategories = useMemo(() => {
     return allCategories.filter((cat: any) => {
-      // Check all possible locations for parentCategoryId
-      const parentId = cat.metadata?.parentCategoryId || 
-                       cat.parentCategoryId || 
-                       cat.parentCategory?.id ||
-                       (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id) ||
-                       cat.parentId; // Also check parentId directly
+      // Check parentCategoryId at root level first (as per API docs)
+      // API returns parentCategoryId at root level, and also in metadata
+      const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
+                       (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : null);
       
-      // A category is top-level if it has no parent ID (null, undefined, empty string, or falsy)
-      // Also check if parentId is explicitly false or 0 (which shouldn't be valid IDs)
-      const isTopLevel = !parentId || 
-                        parentId === '' || 
-                        parentId === null || 
-                        parentId === undefined ||
-                        parentId === false ||
-                        parentId === 0;
+      // A category is top-level if parentCategoryId is null (as per API docs)
+      const isTopLevel = parentId === null || parentId === undefined;
       
       return isTopLevel;
     });
@@ -84,15 +79,14 @@ export default function WallCategoriesPage() {
   }, [topLevelCategories, searchTerm]);
 
   // Get sub-categories for selected category
-  // Check multiple possible locations for parentCategoryId
+  // According to API docs: parentCategoryId contains the parent's ID for sub-categories
   const subCategories = useMemo(() => {
     if (!selectedCategory) return [];
     
     return allCategories.filter((cat: any) => {
-      const parentId = cat.metadata?.parentCategoryId || 
-                      cat.parentCategoryId || 
-                      cat.parentCategory?.id ||
-                      (cat.metadata?.parentCategory && typeof cat.metadata.parentCategory === 'string' ? cat.metadata.parentCategory : cat.metadata?.parentCategory?.id);
+      // Check parentCategoryId at root level first (as per API docs)
+      const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
+                       (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : null);
       return parentId === selectedCategory.id;
     });
   }, [allCategories, selectedCategory]);
@@ -100,8 +94,9 @@ export default function WallCategoriesPage() {
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => postsApi.createWallCategory({
       name: data.name,
+      description: data.description || undefined,
       categoryFor: data.categoryFor || undefined,
-      parentCategoryId: undefined, // Top-level categories have no parent
+      parentCategoryId: null, // Top-level categories have null parent
       isActive: data.status === 'active',
     }),
     onSuccess: () => {
@@ -109,7 +104,7 @@ export default function WallCategoriesPage() {
       queryClient.refetchQueries({ queryKey: ['wall-categories'] });
       showToast('Category created successfully', 'success');
       setIsCreateDialogOpen(false);
-      setFormData({ categoryFor: '', name: '', status: 'active' });
+      setFormData({ categoryFor: '', name: '', description: '', status: 'active' });
     },
     onError: () => showToast('Failed to create category', 'error'),
   });
@@ -117,14 +112,15 @@ export default function WallCategoriesPage() {
   const createSubCategoryMutation = useMutation({
     mutationFn: (data: typeof subCategoryFormData) => postsApi.createWallCategory({
       name: data.name,
-      categoryFor: selectedCategory?.metadata?.categoryFor || undefined,
+      description: data.description || undefined,
+      categoryFor: selectedCategory?.metadata?.categoryFor || selectedCategory?.categoryFor || undefined,
       parentCategoryId: selectedCategory?.id,
       isActive: data.status === 'active',
     }),
     onSuccess: async (response) => {
       showToast('Sub-category created successfully', 'success');
       setIsCreateSubCategoryDialogOpen(false);
-      setSubCategoryFormData({ name: '', status: 'active' });
+      setSubCategoryFormData({ name: '', description: '', status: 'active' });
       
       // Invalidate and refetch to get the updated list
       await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
@@ -293,17 +289,26 @@ export default function WallCategoriesPage() {
                   />
                   <p className="text-xs text-slate-500 mt-1">This sub-category will be created under "{selectedCategory.name}"</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
-                  <Input
-                    placeholder="Enter sub-category name"
-                    value={subCategoryFormData.name}
-                    onChange={(e) => setSubCategoryFormData({ ...subCategoryFormData, name: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Name *</label>
+                <Input
+                  placeholder="Enter sub-category name"
+                  value={subCategoryFormData.name}
+                  onChange={(e) => setSubCategoryFormData({ ...subCategoryFormData, name: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
+                <Input
+                  placeholder="Enter sub-category description (optional)"
+                  value={subCategoryFormData.description}
+                  onChange={(e) => setSubCategoryFormData({ ...subCategoryFormData, description: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Status *</label>
                   <select
                     value={subCategoryFormData.status}
                     onChange={(e) => setSubCategoryFormData({ ...subCategoryFormData, status: e.target.value })}
@@ -543,6 +548,15 @@ export default function WallCategoriesPage() {
                   placeholder="Enter category name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
+                <Input
+                  placeholder="Enter category description (optional)"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="mt-1"
                 />
               </div>
