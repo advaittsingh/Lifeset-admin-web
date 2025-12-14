@@ -65,8 +65,8 @@ export const postsApi = {
   },
 
   // Wall Categories
-  getWallCategories: async () => {
-    const response = await apiClient.get('/admin/wall-categories');
+  getWallCategories: async (params?: { parentId?: string; onlyParents?: boolean; categoryFor?: string }) => {
+    const response = await apiClient.get('/admin/wall-categories', { params });
     return response.data.data || response.data;
   },
   createWallCategory: async (data: any) => {

@@ -30,11 +30,12 @@ export default function WallCategoriesPage() {
     status: 'active'
   });
 
-  // Fetch categories from API
+  // Fetch parent categories from API (default - only parents)
   const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
-    queryKey: ['wall-categories', searchTerm],
+    queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
+        // Default API call returns only parent categories (parentCategoryId is null)
         const data = await postsApi.getWallCategories();
         return Array.isArray(data) ? { data } : data;
       } catch (error: any) {
@@ -54,42 +55,31 @@ export default function WallCategoriesPage() {
     retry: 1, // Only retry once
   });
 
-  const allCategories = categoriesData?.data || [];
-  
-  // Filter to show only top-level categories (no parentCategoryId)
-  // According to API docs: parentCategoryId is null for top-level categories
-  const topLevelCategories = useMemo(() => {
-    return allCategories.filter((cat: any) => {
-      // Check parentCategoryId at root level first (as per API docs)
-      // API returns parentCategoryId at root level, and also in metadata
-      const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
-                       (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : null);
-      
-      // A category is top-level if parentCategoryId is null (as per API docs)
-      const isTopLevel = parentId === null || parentId === undefined;
-      
-      return isTopLevel;
-    });
-  }, [allCategories]);
+  // Fetch sub-categories for selected category
+  const { data: subCategoriesData, isLoading: isLoadingSubCategories } = useQuery({
+    queryKey: ['wall-categories', 'sub-categories', selectedCategory?.id],
+    queryFn: async () => {
+      if (!selectedCategory?.id) return { data: [] };
+      try {
+        // Fetch sub-categories using parentId query parameter
+        const data = await postsApi.getWallCategories({ parentId: selectedCategory.id });
+        return Array.isArray(data) ? { data } : data;
+      } catch (error: any) {
+        console.error('Error fetching sub-categories:', error);
+        return { data: [] };
+      }
+    },
+    enabled: !!selectedCategory?.id,
+  });
+
+  const topLevelCategories = categoriesData?.data || [];
+  const subCategories = subCategoriesData?.data || [];
   
   const filteredCategories = useMemo(() => {
     return topLevelCategories.filter((cat: any) =>
       cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [topLevelCategories, searchTerm]);
-
-  // Get sub-categories for selected category
-  // According to API docs: parentCategoryId contains the parent's ID for sub-categories
-  const subCategories = useMemo(() => {
-    if (!selectedCategory) return [];
-    
-    return allCategories.filter((cat: any) => {
-      // Check parentCategoryId at root level first (as per API docs)
-      const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
-                       (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : null);
-      return parentId === selectedCategory.id;
-    });
-  }, [allCategories, selectedCategory]);
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => postsApi.createWallCategory({
@@ -101,7 +91,7 @@ export default function WallCategoriesPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
-      queryClient.refetchQueries({ queryKey: ['wall-categories'] });
+      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       showToast('Category created successfully', 'success');
       setIsCreateDialogOpen(false);
       setFormData({ categoryFor: '', name: '', description: '', status: 'active' });
@@ -124,7 +114,11 @@ export default function WallCategoriesPage() {
       
       // Invalidate and refetch to get the updated list
       await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
-      await queryClient.refetchQueries({ queryKey: ['wall-categories'] });
+      // Refetch both parent categories and sub-categories
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+      if (selectedCategory?.id) {
+        await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', selectedCategory.id] });
+      }
     },
     onError: (error: any) => {
       console.error('Error creating sub-category:', error);
@@ -225,14 +219,20 @@ export default function WallCategoriesPage() {
             <CardHeader>
               <CardTitle>Sub-Categories</CardTitle>
               <CardDescription>
-                {subCategories.length === 0 
-                  ? 'No sub-categories yet. Create one to get started.'
-                  : `${subCategories.length} sub-categor${subCategories.length === 1 ? 'y' : 'ies'}`
+                {isLoadingSubCategories 
+                  ? 'Loading sub-categories...'
+                  : subCategories.length === 0 
+                    ? 'No sub-categories yet. Create one to get started.'
+                    : `${subCategories.length} sub-categor${subCategories.length === 1 ? 'y' : 'ies'}`
                 }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {subCategories.length === 0 ? (
+              {isLoadingSubCategories ? (
+                <div className="text-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+                </div>
+              ) : subCategories.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   <Tag className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                   <p className="text-sm">No sub-categories found</p>
@@ -453,20 +453,34 @@ export default function WallCategoriesPage() {
                         <p className="text-sm text-red-700 mb-3">
                           {(() => {
                             const error = categoriesError as any;
-                            const message = error?.response?.data?.message || error?.message;
+                            // Try to get error message from various locations
+                            const message = error?.response?.data?.message || 
+                                         error?.response?.data?.error?.message ||
+                                         error?.message || 
+                                         'The server returned an error. Please check the backend logs.';
                             return typeof message === 'string' ? message : 'The server returned an error. Please check the backend logs.';
                           })()}
                         </p>
                         {(categoriesError as any)?.response?.status === 500 && (
-                          <div className="text-xs text-red-600 mb-3">
-                            <p>Status: 500 Internal Server Error</p>
-                            {(categoriesError as any)?.response?.data?.error && (
-                              <p className="mt-1">
-                                Error: {typeof (categoriesError as any).response.data.error === 'string' 
-                                  ? (categoriesError as any).response.data.error 
-                                  : JSON.stringify((categoriesError as any).response.data.error)}
-                              </p>
+                          <div className="text-xs text-red-600 mb-3 space-y-1">
+                            <p className="font-semibold">Status: 500 Internal Server Error</p>
+                            {(categoriesError as any)?.response?.data && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer hover:text-red-800">View error details</summary>
+                                <pre className="mt-2 p-2 bg-red-100 rounded text-xs overflow-auto max-h-40">
+                                  {JSON.stringify((categoriesError as any).response.data, null, 2)}
+                                </pre>
+                              </details>
                             )}
+                            <p className="mt-2 text-red-700">
+                              This is a backend error. Please check:
+                            </p>
+                            <ul className="list-disc list-inside mt-1 space-y-1 text-red-600">
+                              <li>Backend server logs</li>
+                              <li>Database connection</li>
+                              <li>API endpoint implementation</li>
+                              <li>Database schema (parentCategoryId column)</li>
+                            </ul>
                           </div>
                         )}
                         <Button
@@ -515,7 +529,12 @@ export default function WallCategoriesPage() {
                       {category.metadata?.categoryFor && (
                         <p className="text-xs text-slate-500 mt-1">For: {category.metadata.categoryFor}</p>
                       )}
-                      <p className="text-xs text-slate-500 mt-1">{category.postCount || 0} posts</p>
+                      <div className="flex items-center gap-4 mt-1">
+                        <p className="text-xs text-slate-500">{category.postCount || 0} posts</p>
+                        {category.subCategoryCount !== undefined && (
+                          <p className="text-xs text-slate-500">{category.subCategoryCount || 0} sub-categories</p>
+                        )}
+                      </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-slate-400" />
                   </div>
