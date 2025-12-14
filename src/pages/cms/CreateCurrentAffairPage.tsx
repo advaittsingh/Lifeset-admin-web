@@ -20,11 +20,7 @@ export default function CreateCurrentAffairPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDescription, setNewCategoryDescription] = useState('');
-  const [newSubCategory, setNewSubCategory] = useState('');
-  const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+  // Category and sub-category creation removed - use Wall Categories in dashboard instead
   
   // MCQ Dialog state
   const [isMcqDialogOpen, setIsMcqDialogOpen] = useState(false);
@@ -127,29 +123,7 @@ export default function CreateCurrentAffairPage() {
   const descriptionWordCount = getWordCount(formData.description);
   const isDescriptionValid = descriptionWordCount > 0 && descriptionWordCount <= 60;
 
-  const createCategoryMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string }) => postsApi.createWallCategory(data),
-    onSuccess: (createdCategory) => {
-      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
-      const created = Array.isArray(createdCategory) ? createdCategory[0] : createdCategory;
-      const createdId = created?.id;
-      const createdName = created?.name || newCategoryName;
-      setFormData(prev => ({
-        ...prev,
-        categoryId: createdId || prev.categoryId,
-        // keep sub-category choice intact
-      }));
-      if (createdName) {
-        showToast(`Category "${createdName}" created`, 'success');
-      } else {
-        showToast('Category created successfully', 'success');
-      }
-      setIsCategoryDialogOpen(false);
-      setNewCategoryName('');
-      setNewCategoryDescription('');
-    },
-    onError: () => showToast('Failed to create category', 'error'),
-  });
+  // Category creation removed - use Wall Categories in dashboard instead
 
   // Fetch existing item if editing
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
@@ -323,20 +297,7 @@ export default function CreateCurrentAffairPage() {
   };
 
   const handleCategoryChange = (value: string) => {
-    if (value === '__create__') {
-      setIsCategoryDialogOpen(true);
-      return;
-    }
     setFormData(prev => ({ ...prev, categoryId: value }));
-  };
-
-  const handleAddSubCategory = () => {
-    const trimmed = newSubCategory.trim();
-    if (!trimmed) return;
-    setSubCategoryOptions(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
-    setFormData(prev => ({ ...prev, subCategoryId: trimmed }));
-    setNewSubCategory('');
-    showToast('Sub-category added', 'success');
   };
 
   // MCQ Dialog handlers
@@ -655,7 +616,6 @@ export default function CreateCurrentAffairPage() {
               {/* Category Selection */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">Category *</label>
-              <div className="flex items-center gap-2">
                 <select
                   value={formData.categoryId}
                   onChange={(e) => handleCategoryChange(e.target.value)}
@@ -667,44 +627,24 @@ export default function CreateCurrentAffairPage() {
                       {cat.name}
                     </option>
                   ))}
-                  <option value="__create__">+ Create New Category</option>
                 </select>
-                <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(true)}>
-                  + Add
-                </Button>
-              </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Categories are managed in Dashboard → Wall Categories
+                </p>
               </div>
 
               {/* Sub-Category */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">Sub-Category</label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="New sub-category"
-                    value={newSubCategory}
-                    onChange={(e) => setNewSubCategory(e.target.value)}
-                  />
-                  <Button variant="outline" size="sm" onClick={handleAddSubCategory} disabled={!newSubCategory.trim()}>
-                    Add
-                  </Button>
-                </div>
-                <select
+                <Input
+                  placeholder="Enter sub-category (optional)"
                   value={formData.subCategoryId}
                   onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Select Sub Category</option>
-                  {subCategoryOptions.map((sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
-                    </option>
-                  ))}
-                  <option value={formData.subCategoryId || ''}>
-                    {formData.subCategoryId ? `Keep: ${formData.subCategoryId}` : 'Custom'}
-                  </option>
-                </select>
-              </div>
+                  className="w-full"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Enter a sub-category name if needed
+                </p>
               </div>
 
               {/* Section */}
@@ -1100,56 +1040,7 @@ export default function CreateCurrentAffairPage() {
         </div>
       </div>
 
-      {/* Create Category Dialog */}
-      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Category</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-semibold text-slate-700 mb-2 block">Name</label>
-              <Input
-                placeholder="Category name"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-700 mb-2 block">Description</label>
-              <Textarea
-                placeholder="Optional description"
-                value={newCategoryDescription}
-                onChange={(e) => setNewCategoryDescription(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() =>
-                createCategoryMutation.mutate({
-                  name: newCategoryName,
-                  description: newCategoryDescription,
-                })
-              }
-              disabled={createCategoryMutation.isPending || !newCategoryName.trim()}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            >
-              {createCategoryMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Category creation removed - use Wall Categories in dashboard instead */}
 
       {/* Create MCQ Dialog */}
       <Dialog open={isMcqDialogOpen} onOpenChange={setIsMcqDialogOpen}>
