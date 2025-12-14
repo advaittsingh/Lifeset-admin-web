@@ -587,17 +587,17 @@ export default function CreateGeneralKnowledgePage() {
               </div>
 
               {/* Language */}
-              <div>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
                 <select
-                  value={formData.language}
+                  value={formData.language || 'ENGLISH'}
                   onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="ENGLISH">English</option>
-                  <option value="HINDI">Hindi</option>
+                  <option value="HINDI">Hindi (हिंदी)</option>
                 </select>
-                <p className="text-xs text-slate-500 mt-1">Select the language of the article</p>
+                <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
               </div>
 
               {/* Category Fields */}
