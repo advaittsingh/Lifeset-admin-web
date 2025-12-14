@@ -22,6 +22,11 @@ const getApiBaseUrl = () => {
       return `https://api.${baseDomain}/v1`;
     }
     
+    // Check if we're on Vercel admin deployment (lifeset-admin-web.vercel.app -> lifeset-backend.vercel.app)
+    if (hostname.includes('lifeset-admin-web.vercel.app')) {
+      return 'https://lifeset-backend.vercel.app/api/v1';
+    }
+    
     // Check if we're on localhost
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:3000/api/v1';
@@ -42,9 +47,13 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
+  // Get token from store first, fallback to localStorage if store is not initialized
+  const token = useAuthStore.getState().token || localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Remove Authorization header if no token exists
+    delete config.headers.Authorization;
   }
   return config;
 });
@@ -70,13 +79,20 @@ apiClient.interceptors.response.use(
         data: error.response.data,
         requestData: error.config?.data,
       });
+      
+      // Handle 401 Unauthorized - token expired or invalid
+      if (error.response.status === 401) {
+        // Don't redirect if already on login page
+        if (window.location.pathname !== '/login') {
+          const authStore = useAuthStore.getState();
+          // Clear auth state
+          authStore.logout();
+          // Redirect to login
+          window.location.href = '/login';
+        }
+      }
     }
     
-    // Automatic logout on 401 removed - user will stay logged in
-    // if (error.response?.status === 401) {
-    //   useAuthStore.getState().logout();
-    //   window.location.href = '/login';
-    // }
     return Promise.reject(error);
   }
 );

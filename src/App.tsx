@@ -70,12 +70,9 @@ export default function App() {
 
   useEffect(() => {
     // Check if user is already authenticated on mount
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    if (token && user) {
-      // Auth store will handle this, but we can trigger a check
-    }
-  }, []);
+    // This ensures the token is loaded from localStorage into the store
+    checkAuth();
+  }, [checkAuth]);
 
   return (
     <BrowserRouter>
