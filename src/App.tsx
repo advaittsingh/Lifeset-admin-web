@@ -8,6 +8,7 @@ import CreateAwardPage from './pages/dashboard/CreateAwardPage';
 import SpecialisationPage from './pages/dashboard/SpecialisationPage';
 import CreateSpecialisationPage from './pages/dashboard/CreateSpecialisationPage';
 import WallCategoriesPage from './pages/dashboard/WallCategoriesPage';
+import WallCategoryDetailPage from './pages/dashboard/WallCategoryDetailPage';
 import CourseRequestsPage from './pages/dashboard/CourseRequestsPage';
 import SponsorAdsPage from './pages/sponsor-ads/SponsorAdsPage';
 import AdManagementPage from './pages/sponsor-ads/AdManagementPage';
@@ -178,6 +179,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <WallCategoriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/wall-categories/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <WallCategoryDetailPage />
             </ProtectedRoute>
           }
         />
