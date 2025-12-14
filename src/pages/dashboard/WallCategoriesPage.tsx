@@ -23,14 +23,35 @@ export default function WallCategoriesPage() {
     status: 'active' 
   });
 
-  // Fetch parent categories from API (backend now filters correctly)
+  // Fetch parent categories from API
   const { data: categoriesData, isLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
-        // Backend returns only parent categories by default (parentCategoryId IS NULL)
+        // Backend should return only parent categories by default (parentCategoryId IS NULL)
         const data = await postsApi.getWallCategories();
-        return Array.isArray(data) ? { data } : data;
+        const allCategories = Array.isArray(data) ? data : (data?.data || []);
+        
+        console.log('Raw API response:', allCategories);
+        
+        // Client-side filtering as safety measure - ensure only parent categories
+        const parentCategories = allCategories.filter((cat: any) => {
+          // Check parentCategoryId at root level (backend should return this)
+          const parentId = cat.parentCategoryId;
+          
+          // Parent categories have null/undefined parentCategoryId
+          const isParent = parentId === null || parentId === undefined;
+          
+          if (!isParent) {
+            console.log('Filtered out sub-category:', cat.name, 'parentCategoryId:', parentId);
+          }
+          
+          return isParent;
+        });
+        
+        console.log('Filtered parent categories:', parentCategories);
+        
+        return { data: parentCategories };
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
         if (error?.response) {

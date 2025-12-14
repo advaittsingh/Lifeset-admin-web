@@ -34,15 +34,38 @@ export default function WallCategoryDetailPage() {
   const allCategories = categoriesData?.data || [];
   const selectedCategory = allCategories.find((cat: any) => cat.id === id);
 
-  // Fetch sub-categories for this category (backend now filters correctly)
+  // Fetch sub-categories for this category
   const { data: subCategoriesData, isLoading: isLoadingSubCategories } = useQuery({
     queryKey: ['wall-categories', 'sub-categories', id],
     queryFn: async () => {
       if (!id) return { data: [] };
       try {
-        // Backend returns only sub-categories for this parent (WHERE parentCategoryId = id)
+        // Backend should return only sub-categories for this parent (WHERE parentCategoryId = id)
         const data = await postsApi.getWallCategories({ parentId: id });
-        return Array.isArray(data) ? { data } : data;
+        const allCategories = Array.isArray(data) ? data : (data?.data || []);
+        
+        console.log('Raw sub-categories API response for parentId:', id, allCategories);
+        
+        // Client-side filtering as safety measure - ensure only sub-categories for this parent
+        const subCategories = allCategories.filter((cat: any) => {
+          // Check parentCategoryId at root level (backend should return this)
+          const catParentId = cat.parentCategoryId;
+          
+          // Sub-category must have parentCategoryId matching this category's id
+          const isSubCategory = catParentId !== null && 
+                               catParentId !== undefined && 
+                               String(catParentId) === String(id);
+          
+          if (!isSubCategory && catParentId !== null && catParentId !== undefined) {
+            console.log('Filtered out category (wrong parent):', cat.name, 'parentCategoryId:', catParentId, 'expected:', id);
+          }
+          
+          return isSubCategory;
+        });
+        
+        console.log('Filtered sub-categories:', subCategories);
+        
+        return { data: subCategories };
       } catch (error: any) {
         console.error('Error fetching sub-categories:', error);
         return { data: [] };
