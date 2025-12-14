@@ -174,7 +174,7 @@ export default function CreateGeneralKnowledgePage() {
   };
 
   const descriptionWordCount = getWordCount(formData.description);
-  const isDescriptionValid = descriptionWordCount >= 200 && descriptionWordCount <= 300;
+  const isDescriptionValid = descriptionWordCount > 0 && descriptionWordCount <= 60;
 
   const createCategoryMutation = useMutation({
     mutationFn: (data: { name: string; description?: string }) => postsApi.createWallCategory(data),
@@ -328,7 +328,7 @@ export default function CreateGeneralKnowledgePage() {
       return;
     }
     if (!isDescriptionValid) {
-      showToast('Description must be between 200-300 words', 'error');
+      showToast('Description must be 60 words or less', 'error');
       return;
     }
 
@@ -880,18 +880,56 @@ export default function CreateGeneralKnowledgePage() {
               {/* Description */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                  Description * (200-300 words)
+                  Description * (Max 60 words)
                 </label>
                 <RichTextEditor
                   value={formData.description}
-                  onChange={(value) => setFormData({ ...formData, description: value })}
-                  placeholder="Write a brief description (200-300 words) with full formatting options..."
+                  onChange={(value) => {
+                    // Limit to 60 words
+                    const wordCount = getWordCount(value);
+                    if (wordCount > 60) {
+                      // Truncate to 60 words
+                      const parser = new DOMParser();
+                      const doc = parser.parseFromString(value, 'text/html');
+                      const plainText = doc.body.textContent || doc.body.innerText || '';
+                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+                      
+                      if (words.length > 60) {
+                        const truncatedWords = words.slice(0, 60);
+                        const truncatedText = truncatedWords.join(' ');
+                        
+                        // If original had HTML, try to preserve structure by replacing text content
+                        // Otherwise, just use the truncated plain text
+                        let truncatedValue = value;
+                        if (value.includes('<')) {
+                          // Find the text content in the HTML and replace it
+                          const body = doc.body;
+                          if (body) {
+                            body.textContent = truncatedText;
+                            truncatedValue = body.innerHTML || truncatedText;
+                          } else {
+                            truncatedValue = truncatedText;
+                          }
+                        } else {
+                          truncatedValue = truncatedText;
+                        }
+                        
+                        setFormData({ ...formData, description: truncatedValue });
+                        showToast('Description limited to 60 words', 'info');
+                      } else {
+                        setFormData({ ...formData, description: value });
+                      }
+                    } else {
+                      setFormData({ ...formData, description: value });
+                    }
+                  }}
+                  placeholder="Write a brief description (max 60 words) with full formatting options..."
                   minHeight="200px"
                   className="mt-1"
                 />
                 <div className="mt-2 flex items-center justify-between">
-                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {descriptionWordCount} words {!isDescriptionValid && `(Requires 200-300 words)`}
+                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
+                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
                   </p>
                   {isDescriptionValid && (
                     <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
@@ -910,7 +948,7 @@ export default function CreateGeneralKnowledgePage() {
                   className="mt-1"
                 />
                 <p className="text-xs text-slate-500 mt-2">
-                  This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a summary (200-300 words).
+                  This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary (max 60 words).
                 </p>
               </div>
 
