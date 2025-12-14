@@ -46,13 +46,100 @@ export const apiClient = axios.create({
   },
 });
 
+// Expose token debugging utility to window for browser console access
+if (typeof window !== 'undefined') {
+  (window as any).debugAuth = () => {
+    const storeToken = useAuthStore.getState().token;
+    const localToken = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    console.log('=== Auth Debug Info ===');
+    console.log('Store Token:', storeToken ? `${storeToken.substring(0, 20)}... (${storeToken.length} chars)` : 'Not found');
+    console.log('LocalStorage Token:', localToken ? `${localToken.substring(0, 20)}... (${localToken.length} chars)` : 'Not found');
+    console.log('User:', user ? JSON.parse(user) : 'Not found');
+    console.log('API Base URL:', API_BASE_URL);
+    console.log('Current URL:', window.location.href);
+    console.log('=====================');
+    
+    return {
+      storeToken: storeToken ? `${storeToken.substring(0, 20)}...` : null,
+      localToken: localToken ? `${localToken.substring(0, 20)}...` : null,
+      user: user ? JSON.parse(user) : null,
+      apiBaseUrl: API_BASE_URL,
+    };
+  };
+  
+  (window as any).testToken = async (endpoint = '/admin/institutes') => {
+    const token = useAuthStore.getState().token || localStorage.getItem('token');
+    if (!token) {
+      console.error('No token found');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('Token Test Result:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+      
+      const data = await response.json();
+      console.log('Response Data:', data);
+      
+      return { status: response.status, data };
+    } catch (error) {
+      console.error('Token test failed:', error);
+      return { error };
+    }
+  };
+}
+
 apiClient.interceptors.request.use((config) => {
   // Get token from store first, fallback to localStorage if store is not initialized
-  const token = useAuthStore.getState().token || localStorage.getItem('token');
+  const storeToken = useAuthStore.getState().token;
+  const localToken = localStorage.getItem('token');
+  const token = storeToken || localToken;
+  
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    // Ensure token is a string and trim any whitespace
+    const cleanToken = String(token).trim();
+    if (cleanToken) {
+      // Set Authorization header - axios will normalize this to 'Authorization'
+      config.headers.Authorization = `Bearer ${cleanToken}`;
+      
+      // Debug logging (only in development)
+      if (import.meta.env.DEV) {
+        console.log('API Request:', {
+          url: config.url,
+          method: config.method,
+          hasToken: !!cleanToken,
+          tokenLength: cleanToken.length,
+          tokenPreview: cleanToken.substring(0, 20) + '...',
+          authHeader: config.headers.Authorization?.substring(0, 30) + '...',
+        });
+      }
+    } else {
+      console.warn('Token exists but is empty, removing Authorization header');
+      delete config.headers.Authorization;
+    }
   } else {
-    // Remove Authorization header if no token exists
+    // Log warning if we're making an authenticated request without a token
+    if (config.url && !config.url.includes('/auth/login')) {
+      console.warn('No token found for authenticated request:', {
+        url: config.url,
+        method: config.method,
+        storeToken: !!storeToken,
+        localToken: !!localToken,
+      });
+    }
     delete config.headers.Authorization;
   }
   return config;
@@ -71,17 +158,30 @@ apiClient.interceptors.response.use(
       });
     } else if (error.response) {
       // Log server errors with full details
-      console.error('API Error:', {
+      const errorDetails = {
         status: error.response.status,
         statusText: error.response.statusText,
         url: error.config?.url,
         method: error.config?.method,
         data: error.response.data,
         requestData: error.config?.data,
-      });
+        headers: error.config?.headers,
+        baseURL: error.config?.baseURL,
+        fullURL: error.config?.url ? `${error.config.baseURL}${error.config.url}` : undefined,
+      };
+      
+      console.error('API Error:', errorDetails);
       
       // Handle 401 Unauthorized - token expired or invalid
       if (error.response.status === 401) {
+        const currentToken = useAuthStore.getState().token || localStorage.getItem('token');
+        console.error('401 Unauthorized - Authentication failed:', {
+          hasToken: !!currentToken,
+          tokenLength: currentToken?.length || 0,
+          authHeader: error.config?.headers?.Authorization ? 'Present' : 'Missing',
+          url: error.config?.url,
+        });
+        
         // Don't redirect if already on login page
         if (window.location.pathname !== '/login') {
           const authStore = useAuthStore.getState();

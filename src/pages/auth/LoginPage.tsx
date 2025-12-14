@@ -30,8 +30,30 @@ export default function LoginPage() {
       const apiResponse = response.data;
       const loginData = apiResponse.data || apiResponse;
       
-      if (loginData.user && loginData.accessToken) {
-        await setAuth(loginData.user, loginData.accessToken);
+      // Try multiple possible token field names
+      const token = loginData.accessToken || loginData.token || loginData.access_token;
+      
+      if (loginData.user && token) {
+        console.log('Login successful, storing token:', {
+          hasUser: !!loginData.user,
+          hasToken: !!token,
+          tokenLength: token.length,
+          tokenPreview: token.substring(0, 20) + '...',
+        });
+        
+        await setAuth(loginData.user, token);
+        
+        // Verify token was stored
+        const storedToken = localStorage.getItem('token');
+        if (!storedToken || storedToken !== token) {
+          console.error('Token storage failed:', {
+            expected: token.substring(0, 20) + '...',
+            stored: storedToken?.substring(0, 20) + '...',
+          });
+          setError('Failed to store authentication token. Please try again.');
+          return;
+        }
+        
         // Redirect based on user role
         const userType = loginData.user.userType || loginData.user.user_type || 'ADMIN';
         if (userType === 'COMPANY') {
@@ -40,6 +62,13 @@ export default function LoginPage() {
           navigate('/dashboard');
         }
       } else {
+        console.error('Invalid login response:', {
+          hasUser: !!loginData.user,
+          hasAccessToken: !!loginData.accessToken,
+          hasToken: !!loginData.token,
+          hasAccess_token: !!loginData.access_token,
+          response: loginData,
+        });
         setError('Invalid response from server. Please try again.');
       }
     } catch (err: any) {
