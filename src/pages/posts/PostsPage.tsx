@@ -17,7 +17,7 @@ export default function PostsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [formData, setFormData] = useState({ title: '', description: '', postType: 'GENERAL' });
+  const [formData, setFormData] = useState({ title: '', description: '', postType: 'GENERAL', language: 'ENGLISH' });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -41,12 +41,23 @@ export default function PostsPage() {
   const posts = Array.isArray(postsData) ? postsData : (postsData?.data || []);
 
   const createMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; postType: string }) => postsApi.create(data),
+    mutationFn: (data: { title: string; description: string; postType: string; language?: string }) => {
+      // Include language in metadata if provided
+      const payload: any = {
+        title: data.title,
+        description: data.description,
+        postType: data.postType,
+      };
+      if (data.language) {
+        payload.metadata = { language: data.language };
+      }
+      return postsApi.create(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       showToast('Post created successfully', 'success');
       setIsCreateDialogOpen(false);
-      setFormData({ title: '', description: '', postType: 'GENERAL' });
+      setFormData({ title: '', description: '', postType: 'GENERAL', language: 'ENGLISH' });
     },
     onError: () => showToast('Failed to create post', 'error'),
   });
@@ -225,7 +236,12 @@ export default function PostsPage() {
                             size="sm"
                             onClick={() => {
                               setSelectedPost(post);
-                              setFormData({ title: post.title, description: post.description, postType: post.postType });
+                              setFormData({ 
+                                title: post.title, 
+                                description: post.description, 
+                                postType: post.postType,
+                                language: post.metadata?.language || 'ENGLISH'
+                              });
                               setIsEditDialogOpen(true);
                             }}
                           >
@@ -299,6 +315,17 @@ export default function PostsPage() {
                   <option value="QUIZ">Quiz</option>
                 </select>
               </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Language</label>
+                <select
+                  value={formData.language}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ENGLISH">English</option>
+                  <option value="HINDI">Hindi</option>
+                </select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -346,6 +373,17 @@ export default function PostsPage() {
                   placeholder="Enter post description"
                   rows={6}
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Language</label>
+                <select
+                  value={formData.language}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ENGLISH">English</option>
+                  <option value="HINDI">Hindi</option>
+                </select>
               </div>
             </div>
             <DialogFooter>
