@@ -175,16 +175,39 @@ export const jobsApi = {
 
   delete: async (id: string) => {
     // Jobs are stored as posts with postType: 'JOB', so delete via posts endpoint
+    console.log('Attempting to delete job/post with ID:', id);
+    
     try {
       const response = await apiClient.delete(`/admin/posts/${id}`);
+      console.log('Delete response from /admin/posts:', response.data);
+      
+      // Check if the response indicates success
+      if (response.status === 200 || response.status === 204) {
+        return response.data;
+      }
+      
+      // If response has a success field, check it
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || 'Delete failed');
+      }
+      
       return response.data;
     } catch (error: any) {
+      console.error('Delete error from /admin/posts:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      
       // If admin/posts endpoint fails, try the jobs endpoint as fallback
       if (error.response?.status === 404) {
+        console.log('Trying fallback endpoint /jobs');
         try {
           const response = await apiClient.delete(`/jobs/${id}`);
+          console.log('Delete response from /jobs:', response.data);
           return response.data;
-        } catch (fallbackError) {
+        } catch (fallbackError: any) {
+          console.error('Fallback delete also failed:', fallbackError);
           // If both fail, throw the original error
           throw error;
         }

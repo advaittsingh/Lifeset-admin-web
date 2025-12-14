@@ -83,18 +83,56 @@ export default function JobsPage() {
 
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => jobsApi.delete(id),
-    onSuccess: () => {
+    mutationFn: (id: string) => {
+      console.log('Deleting job with ID:', id);
+      return jobsApi.delete(id);
+    },
+    onMutate: async (deletedId) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['jobs', searchTerm] });
+      
+      // Snapshot the previous value
+      const previousJobs = queryClient.getQueryData(['jobs', searchTerm]);
+      
+      // Optimistically update to remove the job
+      queryClient.setQueryData(['jobs', searchTerm], (old: any) => {
+        if (!old) return old;
+        const jobsArray = Array.isArray(old) ? old : (old.data || []);
+        return jobsArray.filter((job: any) => job.id !== deletedId && job.postId !== deletedId);
+      });
+      
+      return { previousJobs };
+    },
+    onSuccess: (data, deletedId) => {
+      console.log('Delete successful, response:', data);
+      // Invalidate all job-related queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['posts'] }); // Also invalidate posts since jobs are posts
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      // Also remove the specific job from cache if it exists
+      queryClient.removeQueries({ queryKey: ['job', deletedId] });
+      // Force refetch to ensure we have the latest data
+      queryClient.refetchQueries({ queryKey: ['jobs', searchTerm] });
       showToast('Job deleted successfully', 'success');
     },
-    onError: (error: any) => {
-      console.error('Delete job error:', error);
+    onError: (error: any, deletedId, context) => {
+      console.error('Delete job error:', {
+        error,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data,
+        deletedId,
+      });
+      
+      // Rollback optimistic update
+      if (context?.previousJobs) {
+        queryClient.setQueryData(['jobs', searchTerm], context.previousJobs);
+      }
+      
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error?.message ||
+                          error.response?.data?.error ||
                           error.message ||
-                          'Failed to delete job';
+                          'Failed to delete job. Please check the console for details.';
       showToast(errorMessage, 'error');
     },
   });
@@ -297,7 +335,10 @@ export default function JobsPage() {
                             size="sm"
                             onClick={() => {
                               if (confirm('Are you sure you want to delete this job?')) {
-                                deleteMutation.mutate(job.id);
+                                // Use postId if available, otherwise use id
+                                const jobId = job.postId || job.id;
+                                console.log('Deleting job:', { jobId, jobIdType: typeof jobId, fullJob: job });
+                                deleteMutation.mutate(jobId);
                               }
                             }}
                             disabled={deleteMutation.isPending}
