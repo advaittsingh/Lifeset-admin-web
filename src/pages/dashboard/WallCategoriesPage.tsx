@@ -46,19 +46,6 @@ export default function WallCategoriesPage() {
   
   // Filter to show only top-level categories (no parentCategoryId)
   const topLevelCategories = useMemo(() => {
-    // Debug: Log all categories to see their structure
-    if (process.env.NODE_ENV === 'development' && allCategories.length > 0) {
-      console.log('All categories from API:', allCategories);
-      allCategories.forEach((cat: any) => {
-        console.log(`Category: ${cat.name}`, {
-          metadata: cat.metadata,
-          parentCategoryId: cat.parentCategoryId,
-          parentCategory: cat.parentCategory,
-          fullObject: cat
-        });
-      });
-    }
-    
     return allCategories.filter((cat: any) => {
       // Check all possible locations for parentCategoryId
       const parentId = cat.metadata?.parentCategoryId || 
@@ -75,13 +62,6 @@ export default function WallCategoriesPage() {
                         parentId === undefined ||
                         parentId === false ||
                         parentId === 0;
-      
-      // Debug logging
-      if (process.env.NODE_ENV === 'development') {
-        if (!isTopLevel) {
-          console.log('Sub-category filtered out:', cat.name, 'Parent ID:', parentId, 'Full cat:', cat);
-        }
-      }
       
       return isTopLevel;
     });
