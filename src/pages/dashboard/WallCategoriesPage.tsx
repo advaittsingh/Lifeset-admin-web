@@ -30,7 +30,23 @@ export default function WallCategoriesPage() {
       try {
         // Default API call returns only parent categories (parentCategoryId is null)
         const data = await postsApi.getWallCategories();
-        return Array.isArray(data) ? { data } : data;
+        const allCategories = Array.isArray(data) ? data : (data?.data || []);
+        
+        // Client-side filtering to ensure we only show parent categories
+        // A category is a parent if parentCategoryId is null, undefined, or empty
+        const parentCategories = allCategories.filter((cat: any) => {
+          const parentId = cat.parentCategoryId !== undefined ? cat.parentCategoryId : 
+                           (cat.metadata?.parentCategoryId !== undefined ? cat.metadata.parentCategoryId : 
+                           (cat.parentCategory?.id !== undefined ? cat.parentCategory.id : null));
+          
+          // Parent categories have null/undefined/empty parentCategoryId
+          return parentId === null || parentId === undefined || parentId === '';
+        });
+        
+        console.log('All categories from API:', allCategories);
+        console.log('Filtered parent categories:', parentCategories);
+        
+        return { data: parentCategories };
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
         // Log detailed error information
