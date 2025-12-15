@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { ArrowLeft, Save, Eye, Newspaper, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin, Tag } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Newspaper, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin, Tag, Send } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi, Chapter } from '../../services/api/cms';
@@ -278,7 +278,7 @@ export default function CreateCurrentAffairPage() {
     onError: () => showToast('Failed to update current affair', 'error'),
   });
 
-  const handleSubmit = () => {
+  const handleSaveDraft = () => {
     if (!formData.title.trim()) {
       showToast('Please enter a title', 'error');
       return;
@@ -292,10 +292,33 @@ export default function CreateCurrentAffairPage() {
       return;
     }
 
+    const draftData = { ...formData, isPublished: false };
     if (isEditMode) {
-      updateMutation.mutate(formData);
+      updateMutation.mutate(draftData);
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(draftData);
+    }
+  };
+
+  const handlePublish = () => {
+    if (!formData.title.trim()) {
+      showToast('Please enter a title', 'error');
+      return;
+    }
+    if (!formData.description.trim()) {
+      showToast('Please enter a description', 'error');
+      return;
+    }
+    if (!isDescriptionValid) {
+      showToast('Description must be 60 words or less', 'error');
+      return;
+    }
+
+    const publishData = { ...formData, isPublished: true };
+    if (isEditMode) {
+      updateMutation.mutate(publishData);
+    } else {
+      createMutation.mutate(publishData);
     }
   };
 
@@ -485,23 +508,42 @@ export default function CreateCurrentAffairPage() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={handleSubmit}
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleSaveDraft}
               disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
-          >
-            {(createMutation.isPending || updateMutation.isPending) ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isEditMode ? 'Updating...' : 'Creating...'}
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                {isEditMode ? 'Update Article' : 'Create Article'}
-              </>
-            )}
-          </Button>
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isEditMode ? 'Saving...' : 'Saving...'}
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isEditMode ? 'Save Article' : 'Save Article'}
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
+              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Publish Article
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Main Content - Full Width Form */}
@@ -984,19 +1026,37 @@ export default function CreateCurrentAffairPage() {
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={handleSubmit}
+                    onClick={handleSaveDraft}
                     disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
                     className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600"
                   >
                     {(createMutation.isPending || updateMutation.isPending) ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {isEditMode ? 'Updating...' : 'Creating...'}
+                        Saving...
                       </>
                     ) : (
                       <>
                         <Save className="h-4 w-4 mr-2" />
-                        {isEditMode ? 'Update Article' : 'Create Article Page'}
+                        Save Article
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handlePublish}
+                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
+                  >
+                    {(createMutation.isPending || updateMutation.isPending) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Publish Article
                       </>
                     )}
                   </Button>
