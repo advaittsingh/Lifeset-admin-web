@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
-import { Bell, Send, CheckCircle2, Clock, Loader2, X } from 'lucide-react';
+import { Bell, Send, CheckCircle2, Clock, Loader2, X, Image as ImageIcon } from 'lucide-react';
 import { notificationsApi, Notification } from '../../services/api/notifications';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -18,6 +18,10 @@ export default function NotificationsPage() {
     type: 'SYSTEM',
     sendToAll: false,
     userId: '',
+    redirectUrl: '',
+    imageFile: null as File | null,
+    imagePreview: null as string | null,
+    imageUrl: '',
     filters: {
       userType: '',
       collegeId: '',
@@ -57,6 +61,10 @@ export default function NotificationsPage() {
         type: 'SYSTEM',
         sendToAll: false,
         userId: '',
+        redirectUrl: '',
+        imageFile: null,
+        imagePreview: null,
+        imageUrl: '',
         filters: {
           userType: '',
           collegeId: '',
@@ -73,6 +81,39 @@ export default function NotificationsPage() {
     onError: () => showToast('Failed to send notification', 'error'),
   });
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          imageFile: file,
+          imagePreview: reader.result as string,
+          imageUrl: '',
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({
+      ...prev,
+      imageFile: null,
+      imagePreview: null,
+      imageUrl: '',
+    }));
+  };
+
   const markAsReadMutation = useMutation({
     mutationFn: (id: string) => notificationsApi.markAsRead(id),
     onSuccess: () => {
@@ -82,12 +123,15 @@ export default function NotificationsPage() {
   });
 
   const handleSend = () => {
+    const imageUrl = formData.imagePreview || formData.imageUrl;
     sendMutation.mutate({
       title: formData.title,
       message: formData.message,
       type: formData.type,
       sendToAll: formData.sendToAll,
       userId: formData.sendToAll ? undefined : formData.userId,
+      redirectUrl: formData.redirectUrl || undefined,
+      image: imageUrl || undefined,
       filters: formData.sendToAll ? formData.filters : undefined,
     });
   };
@@ -249,6 +293,70 @@ export default function NotificationsPage() {
                   <option value="CONNECTION">Connection</option>
                 </select>
               </div>
+              
+              {/* Redirection Link */}
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Redirection Link (Optional)</label>
+                <Input
+                  value={formData.redirectUrl}
+                  onChange={(e) => setFormData({ ...formData, redirectUrl: e.target.value })}
+                  placeholder="https://example.com/page"
+                  type="url"
+                />
+                <p className="text-xs text-slate-500 mt-1">Users will be redirected to this URL when they tap the notification</p>
+              </div>
+
+              {/* Image Upload */}
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Image (Optional)</label>
+                {formData.imagePreview ? (
+                  <div className="relative">
+                    <img
+                      src={formData.imagePreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-lg border border-slate-200"
+                    />
+                    <button
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="file"
+                      id="notification-image-upload"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <label htmlFor="notification-image-upload">
+                      <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer bg-slate-50 hover:bg-blue-50/50">
+                        <div className="flex flex-col items-center gap-2">
+                          <ImageIcon className="h-8 w-8 text-slate-400" />
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">Click to upload image</p>
+                            <p className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</p>
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+                {formData.imageUrl && !formData.imagePreview && (
+                  <div className="mt-2">
+                    <Input
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value, imagePreview: null, imageFile: null })}
+                      placeholder="Or enter image URL"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input

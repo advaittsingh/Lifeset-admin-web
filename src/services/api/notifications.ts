@@ -39,6 +39,8 @@ export const notificationsApi = {
     message: string;
     type: string;
     sendToAll?: boolean;
+    redirectUrl?: string;
+    image?: string;
     filters?: {
       userType?: string;
       collegeId?: string;
