@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin, Tag } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi, Chapter } from '../../services/api/cms';
@@ -543,294 +543,281 @@ export default function CreateGeneralKnowledgePage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              {/* Title */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Title *</label>
-                <Input
-                  placeholder="Enter article title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
+            <CardContent className="pt-6 space-y-8">
+              {/* Section 1: Category and Basic Information */}
+              <div className="space-y-4 pb-6 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-blue-600" />
+                  Category and Basic Information
+                </h3>
+                
+                {/* Category Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Category *</label>
+                    <select
+                      value={formData.categoryId}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((cat: any) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Sub Category</label>
+                    <select
+                      value={formData.subCategoryId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const selected = subCategories.find((sub: any) => sub.id === value);
+                        setFormData({
+                          ...formData,
+                          subCategoryId: value,
+                          subCategory: selected?.name || '',
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      disabled={!formData.categoryId || subCategories.length === 0}
+                    >
+                      <option value="">Select Sub Category</option>
+                      {subCategories.map((sub: any) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Chapter</label>
+                    <select
+                      value={formData.chapterId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, chapterId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      disabled={!formData.subCategoryId || chapters.length === 0}
+                    >
+                      <option value="">Select Chapter</option>
+                      {chapters.map((chapter: Chapter) => (
+                        <option key={chapter.id} value={chapter.id}>
+                          {chapter.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
+                    <Input
+                      placeholder="Enter section"
+                      value={formData.section}
+                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
 
-              {/* Language */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
-                <select
-                  value={formData.language || 'ENGLISH'}
-                  onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="ENGLISH">English</option>
-                  <option value="HINDI">Hindi (हिंदी)</option>
-                </select>
-                <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
-              </div>
-
-              {/* Category Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Category *</label>
-                  <select
-                    value={formData.categoryId}
-                    onChange={(e) => handleCategoryChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((cat: any) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Categories are managed in Dashboard → Wall Categories
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Sub Category</label>
-                  <select
-                    value={formData.subCategoryId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const selected = subCategories.find((sub: any) => sub.id === value);
-                      setFormData({
-                        ...formData,
-                        subCategoryId: value,
-                        subCategory: selected?.name || '',
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    disabled={!formData.categoryId || subCategories.length === 0}
-                  >
-                    <option value="">Select Sub Category</option>
-                    {subCategories.map((sub: any) => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Sub-categories are managed in Dashboard → Wall Categories
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Chapter</label>
-                  <select
-                    value={formData.chapterId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, chapterId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    disabled={!formData.subCategoryId || chapters.length === 0}
-                  >
-                    <option value="">Select Chapter</option>
-                    {chapters.map((chapter: Chapter) => (
-                      <option key={chapter.id} value={chapter.id}>
-                        {chapter.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Select a chapter if needed
-                  </p>
-                </div>
+                {/* Title */}
                 <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Title *</label>
                   <Input
-                    placeholder="Enter section"
-                    value={formData.section}
-                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                    placeholder="Enter article title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Country *</label>
-                  <Input
-                    placeholder="Enter country"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    className="mt-1"
-                  />
+
+                {/* Language */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
+                  <select
+                    value={formData.language || 'ENGLISH'}
+                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="ENGLISH">English</option>
+                    <option value="HINDI">Hindi (हिंदी)</option>
+                  </select>
+                  <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
                 </div>
               </div>
 
-              {/* Post Type */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Post Type *</label>
-                <Input
-                  value={formData.postType}
-                  disabled
-                  className="mt-1 bg-slate-50"
-                />
-              </div>
+              {/* Section 2: Date and Location Details */}
+              <div className="space-y-4 pb-6 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  Date and Location Details
+                </h3>
 
-              {/* Event Date */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Event Date
-                </label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="mt-1"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  The main event date for this general knowledge article.
-                </p>
-              </div>
+                {/* Event Date */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    Event Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
 
-              {/* Event Date for Notification */}
-              {/* Event Date for Notification */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                  Event Date for Notification (Month &amp; Day)
-                </label>
-                <div className="space-y-2">
-                  {formData.eventDates.map((date, index) => (
-                    <div key={index} className="flex items-center gap-2">
+                {/* Notification Date */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                    Notification Date (Month & Day)
+                  </label>
+                  <div className="space-y-2">
+                    {formData.eventDates.map((date, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          value={date}
+                          onChange={(e) => {
+                            const newDates = [...formData.eventDates];
+                            newDates[index] = e.target.value;
+                            setFormData({ ...formData, eventDates: newDates });
+                          }}
+                          className="flex-1"
+                          placeholder="MM-DD"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newDates = formData.eventDates.filter((_, i) => i !== index);
+                            setFormData({ ...formData, eventDates: newDates });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
+                      }}
+                    >
+                      Add More Dates
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Notifications will be sent automatically on these dates each year (use MM-DD format).
+                  </p>
+                </div>
+
+                {/* Event Year Range */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Event Year Range</label>
+                  <Input
+                    placeholder="e.g., 2020-2024"
+                    value={formData.eventYearRange}
+                    onChange={(e) => setFormData({ ...formData, eventYearRange: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Location Section */}
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <label className="text-sm font-semibold text-slate-700 mb-3 block flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </label>
+                  
+                  {/* Longitude and Latitude */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">Longitude</label>
                       <Input
-                        type="text"
-                        value={date}
-                        onChange={(e) => {
-                          const newDates = [...formData.eventDates];
-                          newDates[index] = e.target.value;
-                          setFormData({ ...formData, eventDates: newDates });
-                        }}
-                        className="flex-1"
-                        placeholder="MM-DD"
+                        type="number"
+                        step="any"
+                        placeholder="e.g., 77.2090"
+                        value={formData.location.long}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          location: { ...formData.location, long: e.target.value }
+                        })}
+                        className="mt-1"
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newDates = formData.eventDates.filter((_, i) => i !== index);
-                          setFormData({ ...formData, eventDates: newDates });
-                        }}
-                      >
-                        Remove
-                      </Button>
                     </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
-                    }}
-                  >
-                    Add More Dates
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Notifications will be sent automatically on these dates each year. Use the MM-DD
-                  format (year is ignored).
-                </p>
-              </div>
-
-              {/* Event Year Range */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Event Year Range</label>
-                <Input
-                  placeholder="e.g., 2020-2024"
-                  value={formData.eventYearRange}
-                  onChange={(e) => setFormData({ ...formData, eventYearRange: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Location (Latitude & Longitude)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-slate-600 mb-1 block">Latitude</label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g., 28.6139"
-                      value={formData.location.lat}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        location: { ...formData.location, lat: e.target.value }
-                      })}
-                      className="mt-1"
-                    />
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">Latitude</label>
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="e.g., 28.6139"
+                        value={formData.location.lat}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          location: { ...formData.location, lat: e.target.value }
+                        })}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-slate-600 mb-1 block">Longitude</label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g., 77.2090"
-                      value={formData.location.long}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        location: { ...formData.location, long: e.target.value }
-                      })}
-                      className="mt-1"
-                    />
+
+                  {/* Country, State, District, City */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">Country *</label>
+                      <Input
+                        placeholder="Enter country"
+                        value={formData.country}
+                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">State</label>
+                      <Input
+                        placeholder="Enter state"
+                        value={formData.state}
+                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">District</label>
+                      <Input
+                        placeholder="Enter district"
+                        value={formData.district}
+                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-600 mb-1 block">City</label>
+                      <Input
+                        placeholder="Enter city"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Enter the geographical coordinates for this general knowledge article
-                </p>
               </div>
 
-              {/* State, District, City */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">State</label>
-                  <Input
-                    placeholder="Enter state"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">District</label>
-                  <Input
-                    placeholder="Enter district"
-                    value={formData.district}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">City</label>
-                  <Input
-                    placeholder="Enter city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+              {/* Section 3: Content */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-blue-600" />
+                  Content
+                </h3>
 
-              {/* Targeted Keywords */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Targeted Keywords</label>
-                <Input
-                  placeholder="Enter keywords separated by commas"
-                  value={formData.targetedKeywords}
-                  onChange={(e) => setFormData({ ...formData, targetedKeywords: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                  Description * (Max 60 words)
-                </label>
+                {/* Image Upload */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Image Upload
+                  </label>
                 <RichTextEditor
                   value={formData.description}
                   onChange={(value) => {
@@ -886,27 +873,12 @@ export default function CreateGeneralKnowledgePage() {
                 </div>
               </div>
 
-              {/* Full Article */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
-                <RichTextEditor
-                  value={formData.fullArticle}
-                  onChange={(value) => setFormData({ ...formData, fullArticle: value })}
-                  placeholder="Write the complete article content with full formatting options..."
-                  minHeight="400px"
-                  className="mt-1"
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                  This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary (max 60 words).
-                </p>
-              </div>
-
-              {/* Image Upload */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Article Image
-                </label>
+                {/* Image Upload */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Image Upload
+                  </label>
                 
                 {formData.imagePreview || formData.imageUrl ? (
                   <div className="mt-2 space-y-3">
@@ -989,6 +961,82 @@ export default function CreateGeneralKnowledgePage() {
                       />
                     </div>
                   </details>
+                </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                    Description * (Max 60 words)
+                  </label>
+                  <RichTextEditor
+                    value={formData.description}
+                    onChange={(value) => {
+                      // Limit to 60 words
+                      const wordCount = getWordCount(value);
+                      if (wordCount > 60) {
+                        // Truncate to 60 words
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(value, 'text/html');
+                        const plainText = doc.body.textContent || doc.body.innerText || '';
+                        const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+                        
+                        if (words.length > 60) {
+                          const truncatedWords = words.slice(0, 60);
+                          const truncatedText = truncatedWords.join(' ');
+                          
+                          // If original had HTML, try to preserve structure by replacing text content
+                          // Otherwise, just use the truncated plain text
+                          let truncatedValue = value;
+                          if (value.includes('<')) {
+                            // Find the text content in the HTML and replace it
+                            const body = doc.body;
+                            if (body) {
+                              body.textContent = truncatedText;
+                              truncatedValue = body.innerHTML || truncatedText;
+                            } else {
+                              truncatedValue = truncatedText;
+                            }
+                          } else {
+                            truncatedValue = truncatedText;
+                          }
+                          
+                          setFormData({ ...formData, description: truncatedValue });
+                          showToast('Description limited to 60 words', 'info');
+                        } else {
+                          setFormData({ ...formData, description: value });
+                        }
+                      } else {
+                        setFormData({ ...formData, description: value });
+                      }
+                    }}
+                    placeholder="Write a brief description (max 60 words) with full formatting options..."
+                    minHeight="200px"
+                    className="mt-1"
+                  />
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
+                      {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
+                    </p>
+                    {isDescriptionValid && (
+                      <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Full Article */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Full Article</label>
+                  <RichTextEditor
+                    value={formData.fullArticle}
+                    onChange={(value) => setFormData({ ...formData, fullArticle: value })}
+                    placeholder="Write the complete article content with full formatting options..."
+                    minHeight="400px"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary (max 60 words).
+                  </p>
                 </div>
               </div>
 
