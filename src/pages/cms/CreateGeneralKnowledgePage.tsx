@@ -1021,7 +1021,7 @@ export default function CreateGeneralKnowledgePage() {
                       }
                     }}
                     placeholder="Write a brief description (max 60 words) with full formatting options..."
-                    minHeight="120px"
+                    minHeight="80px"
                     className="mt-1"
                   />
                   <div className="mt-2 flex items-center justify-between">
