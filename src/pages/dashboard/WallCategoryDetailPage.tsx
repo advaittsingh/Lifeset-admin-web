@@ -29,11 +29,11 @@ export default function WallCategoryDetailPage() {
     status: 'active',
   });
 
-  // Fetch parent category details
+  // Fetch parent category details (only parents to find the selected one)
   const { data: categoriesData } = useQuery<WallCategory[]>({
     queryKey: ['wall-categories', 'parents'],
     queryFn: async () => {
-      return postsApi.getWallCategories();
+      return postsApi.getWallCategories({ onlyParents: true });
     },
   });
 
@@ -47,7 +47,12 @@ export default function WallCategoryDetailPage() {
       if (!id) return [];
       try {
         // Backend returns only sub-categories for this parent
-        return postsApi.getWallSubCategories(id);
+        const allSubCategories = await postsApi.getWallSubCategories(id);
+        // Client-side safety filter: ensure only sub-categories with parentCategoryId === id
+        const filteredSubCategories = allSubCategories.filter(
+          (cat) => cat.parentCategoryId === id
+        );
+        return filteredSubCategories;
       } catch (error: any) {
         console.error('Error fetching sub-categories:', error);
         return [];
@@ -62,6 +67,10 @@ export default function WallCategoryDetailPage() {
     mutationFn: (data: typeof subCategoryFormData) => {
       if (!id) {
         throw new Error('Parent category ID is required');
+      }
+      // Validate that selectedCategory is actually a parent (not a sub-category)
+      if (selectedCategory && selectedCategory.parentCategoryId !== null && selectedCategory.parentCategoryId !== undefined) {
+        throw new Error('Cannot create sub-categories under a sub-category. Maximum depth is 2 levels: parent → sub-category.');
       }
       return postsApi.createWallCategory({
         name: data.name,

@@ -36,8 +36,13 @@ export default function WallCategoriesPage() {
     queryKey: ['wall-categories', 'parents', searchTerm],
     queryFn: async () => {
       try {
-        // Backend returns only parent categories by default (onlyParents=true)
-        return await postsApi.getWallCategories();
+        // Explicitly request only parent categories (onlyParents=true)
+        const allCategories = await postsApi.getWallCategories({ onlyParents: true });
+        // Client-side safety filter: ensure only categories with parentCategoryId === null
+        const parentCategories = allCategories.filter(
+          (cat) => cat.parentCategoryId === null || cat.parentCategoryId === undefined
+        );
+        return parentCategories;
       } catch (error: any) {
         console.error('Error fetching wall categories:', error);
         if (error?.response) {
