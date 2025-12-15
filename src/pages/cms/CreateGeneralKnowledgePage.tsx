@@ -889,67 +889,6 @@ export default function CreateGeneralKnowledgePage() {
                     <ImageIcon className="h-4 w-4" />
                     Image Upload
                   </label>
-                <RichTextEditor
-                  value={formData.description}
-                  onChange={(value) => {
-                    // Limit to 60 words
-                    const wordCount = getWordCount(value);
-                    if (wordCount > 60) {
-                      // Truncate to 60 words
-                      const parser = new DOMParser();
-                      const doc = parser.parseFromString(value, 'text/html');
-                      const plainText = doc.body.textContent || doc.body.innerText || '';
-                      const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
-                      
-                      if (words.length > 60) {
-                        const truncatedWords = words.slice(0, 60);
-                        const truncatedText = truncatedWords.join(' ');
-                        
-                        // If original had HTML, try to preserve structure by replacing text content
-                        // Otherwise, just use the truncated plain text
-                        let truncatedValue = value;
-                        if (value.includes('<')) {
-                          // Find the text content in the HTML and replace it
-                          const body = doc.body;
-                          if (body) {
-                            body.textContent = truncatedText;
-                            truncatedValue = body.innerHTML || truncatedText;
-                          } else {
-                            truncatedValue = truncatedText;
-                          }
-                        } else {
-                          truncatedValue = truncatedText;
-                        }
-                        
-                        setFormData({ ...formData, description: truncatedValue });
-                        showToast('Description limited to 60 words', 'info');
-                      } else {
-                        setFormData({ ...formData, description: value });
-                      }
-                    } else {
-                      setFormData({ ...formData, description: value });
-                    }
-                  }}
-                  placeholder="Write a brief description (max 60 words) with full formatting options..."
-                  minHeight="200px"
-                  className="mt-1"
-                />
-                <div className="mt-2 flex items-center justify-between">
-                  <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
-                    {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
-                  </p>
-                  {isDescriptionValid && (
-                    <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
-                  )}
-                </div>
-              </div>
-
-                {/* Image Upload */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4" />
-                    Image Upload
-                  </label>
                 
                 {formData.imagePreview || formData.imageUrl ? (
                   <div className="mt-2 space-y-3">
@@ -1116,42 +1055,6 @@ export default function CreateGeneralKnowledgePage() {
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={handleSaveDraft}
-                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600"
-                  >
-                    {(createMutation.isPending || updateMutation.isPending) ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Article
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handlePublish}
-                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
-                  >
-                    {(createMutation.isPending || updateMutation.isPending) ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Publish Article
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
                     variant="outline"
                     onClick={handleOpenMcqDialog}
                     className="flex-1"
@@ -1159,47 +1062,6 @@ export default function CreateGeneralKnowledgePage() {
                     <HelpCircle className="h-4 w-4 mr-2" />
                     Create MCQ
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to reject this article?')) {
-                        setFormData(prev => ({ ...prev, isActive: false }));
-                        showToast('Article rejected', 'info');
-                      }
-                    }}
-                    className="flex-1"
-                  >
-                    Reject
-                  </Button>
-                </div>
-
-                {/* Publish/Deactivate/Send Notification */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="publish"
-                      checked={formData.isPublished}
-                      onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label htmlFor="publish" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Publish
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="deactivate"
-                      checked={!formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: !e.target.checked })}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label htmlFor="deactivate" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Deactivate
-                    </label>
-                  </div>
                 </div>
 
                 <div className="space-y-2">

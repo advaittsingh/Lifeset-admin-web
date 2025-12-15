@@ -1026,42 +1026,6 @@ export default function CreateCurrentAffairPage() {
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={handleSaveDraft}
-                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600"
-                  >
-                    {(createMutation.isPending || updateMutation.isPending) ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Article
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handlePublish}
-                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
-                  >
-                    {(createMutation.isPending || updateMutation.isPending) ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Publish Article
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
                     variant="outline"
                     onClick={handleOpenMcqDialog}
                     className="flex-1"
@@ -1069,47 +1033,6 @@ export default function CreateCurrentAffairPage() {
                     <HelpCircle className="h-4 w-4 mr-2" />
                     Create MCQ
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to reject this article?')) {
-                        setFormData(prev => ({ ...prev, isActive: false }));
-                        showToast('Article rejected', 'info');
-                      }
-                    }}
-                    className="flex-1"
-                  >
-                    Reject
-                  </Button>
-                </div>
-
-                {/* Publish/Deactivate/Send Notification */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="publish-ca"
-                      checked={formData.isPublished}
-                      onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label htmlFor="publish-ca" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Publish
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="deactivate-ca"
-                      checked={!formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: !e.target.checked })}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label htmlFor="deactivate-ca" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Deactivate
-                    </label>
-                  </div>
                 </div>
 
                 <div className="space-y-2">
