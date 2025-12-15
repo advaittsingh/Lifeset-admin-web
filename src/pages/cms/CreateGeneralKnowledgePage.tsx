@@ -528,10 +528,8 @@ export default function CreateGeneralKnowledgePage() {
           </Button>
         </div>
 
-        {/* Main Content - Side by Side */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Left Side - Form */}
-          <Card className="border-0 shadow-xl bg-white">
+        {/* Main Content - Full Width Form */}
+        <Card className="border-0 shadow-xl bg-white">
             <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-blue-50/50 to-white">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-md">
@@ -551,8 +549,8 @@ export default function CreateGeneralKnowledgePage() {
                   Category and Basic Information
                 </h3>
                 
-                {/* Category Fields */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Category Fields - 3 Rows Layout */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Category *</label>
                     <select
@@ -610,6 +608,8 @@ export default function CreateGeneralKnowledgePage() {
                       ))}
                     </select>
                   </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
                     <Input
@@ -619,31 +619,27 @@ export default function CreateGeneralKnowledgePage() {
                       className="mt-1"
                     />
                   </div>
-                </div>
-
-                {/* Title */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Title *</label>
-                  <Input
-                    placeholder="Enter article title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Language */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
-                  <select
-                    value={formData.language || 'ENGLISH'}
-                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="ENGLISH">English</option>
-                    <option value="HINDI">Hindi (हिंदी)</option>
-                  </select>
-                  <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block">Title *</label>
+                    <Input
+                      placeholder="Enter article title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block">Language *</label>
+                    <select
+                      value={formData.language || 'ENGLISH'}
+                      onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                      className="w-full px-3 py-2 border-2 border-blue-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="ENGLISH">English</option>
+                      <option value="HINDI">Hindi (हिंदी)</option>
+                    </select>
+                    <p className="text-xs text-slate-600 mt-2 font-medium">Select the language of the article content</p>
+                  </div>
                 </div>
               </div>
 
@@ -654,33 +650,86 @@ export default function CreateGeneralKnowledgePage() {
                   Date and Location Details
                 </h3>
 
-                {/* Event Date */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                    Event Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="mt-1"
-                  />
+                {/* Date Fields - 3 Rows Layout */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                      Event Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                      Event Year Range
+                    </label>
+                    <Input
+                      placeholder="e.g., 2020-2024"
+                      value={formData.eventYearRange}
+                      onChange={(e) => setFormData({ ...formData, eventYearRange: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                      Notification Date (Month & Day)
+                    </label>
+                    <div className="space-y-2">
+                      {formData.eventDates.slice(0, 1).map((date, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={date}
+                            onChange={(e) => {
+                              const newDates = [...formData.eventDates];
+                              newDates[index] = e.target.value;
+                              setFormData({ ...formData, eventDates: newDates });
+                            }}
+                            className="flex-1"
+                            placeholder="MM-DD"
+                          />
+                          {formData.eventDates.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newDates = formData.eventDates.filter((_, i) => i !== index);
+                                setFormData({ ...formData, eventDates: newDates });
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {formData.eventDates.length === 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFormData({ ...formData, eventDates: [...formData.eventDates, ''] });
+                          }}
+                        >
+                          Add Date
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-
-                {/* Notification Date */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                    Notification Date (Month & Day)
-                  </label>
+                {formData.eventDates.length > 1 && (
                   <div className="space-y-2">
-                    {formData.eventDates.map((date, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                    {formData.eventDates.slice(1).map((date, index) => (
+                      <div key={index + 1} className="flex items-center gap-2">
                         <Input
                           type="text"
                           value={date}
                           onChange={(e) => {
                             const newDates = [...formData.eventDates];
-                            newDates[index] = e.target.value;
+                            newDates[index + 1] = e.target.value;
                             setFormData({ ...formData, eventDates: newDates });
                           }}
                           className="flex-1"
@@ -690,7 +739,7 @@ export default function CreateGeneralKnowledgePage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const newDates = formData.eventDates.filter((_, i) => i !== index);
+                            const newDates = formData.eventDates.filter((_, i) => i !== index + 1);
                             setFormData({ ...formData, eventDates: newDates });
                           }}
                         >
@@ -708,31 +757,20 @@ export default function CreateGeneralKnowledgePage() {
                       Add More Dates
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Notifications will be sent automatically on these dates each year (use MM-DD format).
-                  </p>
-                </div>
+                )}
+                <p className="text-xs text-slate-500 mt-1">
+                  Notifications will be sent automatically on these dates each year (use MM-DD format).
+                </p>
 
-                {/* Event Year Range */}
-                <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Event Year Range</label>
-                  <Input
-                    placeholder="e.g., 2020-2024"
-                    value={formData.eventYearRange}
-                    onChange={(e) => setFormData({ ...formData, eventYearRange: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Location Section */}
+                {/* Location Section - 3 Rows Layout */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <label className="text-sm font-semibold text-slate-700 mb-3 block flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
                     Location
                   </label>
                   
-                  {/* Longitude and Latitude */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  {/* Row 1: Longitude, Latitude, Country */}
+                  <div className="grid grid-cols-3 gap-3 mb-4">
                     <div>
                       <label className="text-xs text-slate-600 mb-1 block">Longitude</label>
                       <Input
@@ -761,10 +799,6 @@ export default function CreateGeneralKnowledgePage() {
                         className="mt-1"
                       />
                     </div>
-                  </div>
-
-                  {/* Country, State, District, City */}
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-600 mb-1 block">Country *</label>
                       <Input
@@ -774,6 +808,10 @@ export default function CreateGeneralKnowledgePage() {
                         className="mt-1"
                       />
                     </div>
+                  </div>
+
+                  {/* Row 2: State, District, City */}
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-xs text-slate-600 mb-1 block">State</label>
                       <Input
@@ -1142,20 +1180,65 @@ export default function CreateGeneralKnowledgePage() {
             </CardContent>
           </Card>
 
-          {/* Right Side - Live Preview */}
-          <Card className="border-0 shadow-xl bg-white sticky top-6">
-            <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-emerald-50/50 to-white">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">
-                  <Eye className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-slate-900">Live Preview</CardTitle>
-                  <CardDescription className="text-slate-600">See how your article will appear</CardDescription>
+        </Card>
+
+        {/* Preview Section - Bottom, Side by Side */}
+        <Card className="border-0 shadow-xl bg-white mt-6">
+          <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-emerald-50/50 to-white">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-slate-900">Live Preview</CardTitle>
+                <CardDescription className="text-slate-600">See how your article will appear</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 gap-6">
+              {/* Description Preview */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">Description Preview</h4>
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border-2 border-dashed border-slate-300 min-h-[300px]">
+                  {formData.description ? (
+                    <div 
+                      className="text-sm text-slate-700 article-preview-content bg-white p-4 rounded-lg"
+                      dangerouslySetInnerHTML={{ __html: formData.description }}
+                    />
+                  ) : (
+                    <div className="space-y-2 p-4">
+                      <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-4/6"></div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-6">
+
+              {/* Full Article Preview */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">Full Article Preview</h4>
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border-2 border-dashed border-slate-300 min-h-[300px]">
+                  {formData.fullArticle ? (
+                    <div 
+                      className="text-sm text-slate-700 article-preview-content bg-white p-4 rounded-lg max-h-[400px] overflow-y-auto"
+                      dangerouslySetInnerHTML={{ __html: formData.fullArticle }}
+                    />
+                  ) : (
+                    <div className="space-y-2 p-4">
+                      <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-4/6"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-5/6"></div>
+                      <div className="h-4 bg-slate-200 rounded animate-pulse w-3/6"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
               <div className="space-y-4">
                 {/* Preview Container */}
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-dashed border-slate-300">
