@@ -225,6 +225,17 @@ export default function CreateCurrentAffairPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      // Re-validate description word count before sending (matches backend validation)
+      const wordCount = getWordCount(data.description);
+      if (wordCount > 60) {
+        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
+      }
+      
+      const charCount = getCharacterCount(data.description);
+      if (charCount > 500) {
+        throw new Error(`Description must be 500 characters or less (HTML tags are not counted). Current: ${charCount} characters`);
+      }
+      
       const imageUrl = data.imagePreview || data.imageUrl;
       
       // Helper to clean empty strings and undefined values
@@ -298,12 +309,24 @@ export default function CreateCurrentAffairPage() {
     },
     onError: (error: any) => {
       // Log full error details for debugging
+      const requestPayload = error?.config?.data ? JSON.parse(error.config.data) : null;
+      const errorResponse = error?.response?.data;
+      
       console.error('Create current affair error:', {
         error,
         response: error?.response,
-        responseData: error?.response?.data,
-        requestData: error?.config?.data ? JSON.parse(error.config.data) : null,
+        responseData: errorResponse,
+        requestData: requestPayload,
+        fullErrorResponse: JSON.stringify(errorResponse, null, 2),
       });
+      
+      // Also log the error details structure
+      if (errorResponse?.error?.details) {
+        console.error('Error details:', errorResponse.error.details);
+      }
+      if (errorResponse?.error?.message) {
+        console.error('Error message:', errorResponse.error.message);
+      }
       
       // Extract error message from various possible structures
       let errorMessage = 'Failed to create current affair';
@@ -311,14 +334,36 @@ export default function CreateCurrentAffairPage() {
       if (error?.response?.data) {
         const responseData = error.response.data;
         
-        // Handle {code, message, details} structure
-        if (responseData.message && typeof responseData.message === 'string') {
+        // Handle backend error structure: { success: false, error: { code, message, details: { message: [...] } } }
+        if (responseData.error) {
+          const errorObj = responseData.error;
+          
+          // First try error.message
+          if (errorObj.message && typeof errorObj.message === 'string') {
+            errorMessage = errorObj.message;
+          }
+          // Then try error.details.message array
+          else if (errorObj.details?.message) {
+            if (Array.isArray(errorObj.details.message)) {
+              errorMessage = errorObj.details.message
+                .filter((msg: any) => typeof msg === 'string')
+                .join(', ');
+            } else if (typeof errorObj.details.message === 'string') {
+              errorMessage = errorObj.details.message;
+            }
+          }
+          // Fallback to error.details if it's a string
+          else if (errorObj.details && typeof errorObj.details === 'string') {
+            errorMessage = errorObj.details;
+          }
+        }
+        // Handle direct message property
+        else if (responseData.message && typeof responseData.message === 'string') {
           errorMessage = responseData.message;
-        } else if (responseData.details) {
-          // If details is a string, use it; if it's an object/array, format it
-          if (typeof responseData.details === 'string') {
-            errorMessage = responseData.details;
-          } else if (Array.isArray(responseData.details)) {
+        }
+        // Handle details property directly
+        else if (responseData.details) {
+          if (Array.isArray(responseData.details)) {
             errorMessage = responseData.details
               .map((detail: any) => {
                 if (typeof detail === 'string') return detail;
@@ -326,29 +371,28 @@ export default function CreateCurrentAffairPage() {
                 return JSON.stringify(detail);
               })
               .join(', ');
-          } else if (typeof responseData.details === 'object') {
-            // Try to extract meaningful message from details object
-            if (responseData.details.message) {
-              errorMessage = responseData.details.message;
+          } else if (typeof responseData.details === 'string') {
+            errorMessage = responseData.details;
+          } else if (responseData.details.message) {
+            if (Array.isArray(responseData.details.message)) {
+              errorMessage = responseData.details.message.join(', ');
             } else {
-              errorMessage = Object.values(responseData.details)
-                .filter(v => v)
-                .map(v => typeof v === 'string' ? v : JSON.stringify(v))
-                .join(', ') || 'Validation error';
+              errorMessage = responseData.details.message;
             }
           }
-        } else if (typeof responseData === 'string') {
+        }
+        // Handle string response
+        else if (typeof responseData === 'string') {
           errorMessage = responseData;
-        } else if (responseData.error) {
-          errorMessage = typeof responseData.error === 'string'
-            ? responseData.error
-            : JSON.stringify(responseData.error);
-        } else if (Array.isArray(responseData)) {
+        }
+        // Handle array response
+        else if (Array.isArray(responseData)) {
           errorMessage = responseData
             .map((err: any) => err.message || JSON.stringify(err))
             .join(', ');
-        } else {
-          // Last resort: stringify the whole response
+        }
+        // Last resort
+        else {
           errorMessage = 'Validation error. Check console for details.';
         }
       } else if (error?.message) {
@@ -371,6 +415,17 @@ export default function CreateCurrentAffairPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
+      // Re-validate description word count before sending (matches backend validation)
+      const wordCount = getWordCount(data.description);
+      if (wordCount > 60) {
+        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
+      }
+      
+      const charCount = getCharacterCount(data.description);
+      if (charCount > 500) {
+        throw new Error(`Description must be 500 characters or less (HTML tags are not counted). Current: ${charCount} characters`);
+      }
+      
       const imageUrl = data.imagePreview || data.imageUrl;
       return cmsApi.updateCurrentAffair(id!, {
         title: data.title,
@@ -1117,18 +1172,24 @@ export default function CreateCurrentAffairPage() {
                         let truncatedWords = words;
                         let reason = '';
                         
-                        // First limit by character count if needed
-                        if (charCount > 500) {
-                          truncatedText = plainText.substring(0, 500);
-                          truncatedWords = truncatedText.trim().split(/\s+/).filter(word => word.length > 0);
-                          reason = '500 characters';
-                        }
-                        
-                        // Then limit by word count if still needed
+                        // Prioritize word count limit (60 words) as it's more important
                         if (truncatedWords.length > 60) {
                           truncatedWords = truncatedWords.slice(0, 60);
                           truncatedText = truncatedWords.join(' ');
                           reason = '60 words';
+                        }
+                        // Then check character count
+                        else if (charCount > 500) {
+                          truncatedText = plainText.substring(0, 500);
+                          truncatedWords = truncatedText.trim().split(/\s+/).filter(word => word.length > 0);
+                          // Re-check word count after character truncation
+                          if (truncatedWords.length > 60) {
+                            truncatedWords = truncatedWords.slice(0, 60);
+                            truncatedText = truncatedWords.join(' ');
+                            reason = '60 words';
+                          } else {
+                            reason = '500 characters';
+                          }
                         }
                         
                         // If original had HTML, try to preserve structure by replacing text content
@@ -1136,12 +1197,22 @@ export default function CreateCurrentAffairPage() {
                         if (value.includes('<')) {
                           const body = doc.body;
                           if (body) {
+                            // Replace text content while preserving HTML structure
                             body.textContent = truncatedText;
                             truncatedValue = body.innerHTML || truncatedText;
                           } else {
                             truncatedValue = truncatedText;
                           }
                         } else {
+                          truncatedValue = truncatedText;
+                        }
+                        
+                        // Double-check the truncated value doesn't exceed limits
+                        const finalWordCount = getWordCount(truncatedValue);
+                        const finalCharCount = getCharacterCount(truncatedValue);
+                        
+                        if (finalWordCount > 60 || finalCharCount > 500) {
+                          // If still over limit, strip all HTML and use plain text
                           truncatedValue = truncatedText;
                         }
                         
