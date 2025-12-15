@@ -579,16 +579,7 @@ export default function CreateCurrentAffairPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-semibold text-slate-700 mb-2 block">Section</label>
-                    <Input
-                      placeholder="Enter section"
-                      value={formData.section}
-                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                      className="mt-1"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold text-slate-700 mb-2 block">Title *</label>
                     <Input
