@@ -227,7 +227,7 @@ export default function CreateCurrentAffairPage() {
       };
       
       const metadata: any = {
-        fullArticle: data.fullArticle,
+        fullArticle: data.fullArticle || '',
       };
       
       // Only include fields that have values
@@ -241,14 +241,19 @@ export default function CreateCurrentAffairPage() {
       if (data.date) metadata.date = data.date;
       if (data.eventDates && data.eventDates.length > 0) metadata.eventDates = data.eventDates;
       if (data.eventYearRange) metadata.eventYearRange = data.eventYearRange;
-      if (data.location && (data.location.lat || data.location.long)) metadata.location = data.location;
+      if (data.location && (data.location.lat || data.location.long)) {
+        metadata.location = {
+          lat: data.location.lat || '',
+          long: data.location.long || '',
+        };
+      }
       if (data.state) metadata.state = data.state;
       if (data.district) metadata.district = data.district;
       if (data.city) metadata.city = data.city;
       if (data.sendNotification !== undefined) metadata.sendNotification = data.sendNotification;
       if (data.notificationTime) metadata.notificationTime = data.notificationTime;
       
-      return cmsApi.createCurrentAffair({
+      const payload = {
         title: data.title,
         description: data.description,
         categoryId: data.categoryId || undefined,
@@ -256,7 +261,12 @@ export default function CreateCurrentAffairPage() {
         isPublished: data.isPublished,
         language: data.language || 'ENGLISH',
         metadata: cleanValue(metadata),
-      });
+      };
+      
+      // Log payload for debugging
+      console.log('Creating current affair with payload:', JSON.stringify(payload, null, 2));
+      
+      return cmsApi.createCurrentAffair(payload);
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
@@ -269,11 +279,74 @@ export default function CreateCurrentAffairPage() {
       // Don't navigate away - allow creating MCQ
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || 
-                          error?.response?.data?.error ||
-                          error?.message || 
-                          'Failed to create current affair';
-      console.error('Create current affair error:', error);
+      // Log full error details for debugging
+      console.error('Create current affair error:', {
+        error,
+        response: error?.response,
+        responseData: error?.response?.data,
+        requestData: error?.config?.data ? JSON.parse(error.config.data) : null,
+      });
+      
+      // Extract error message from various possible structures
+      let errorMessage = 'Failed to create current affair';
+      
+      if (error?.response?.data) {
+        const responseData = error.response.data;
+        
+        // Handle {code, message, details} structure
+        if (responseData.message && typeof responseData.message === 'string') {
+          errorMessage = responseData.message;
+        } else if (responseData.details) {
+          // If details is a string, use it; if it's an object/array, format it
+          if (typeof responseData.details === 'string') {
+            errorMessage = responseData.details;
+          } else if (Array.isArray(responseData.details)) {
+            errorMessage = responseData.details
+              .map((detail: any) => {
+                if (typeof detail === 'string') return detail;
+                if (detail?.message) return detail.message;
+                return JSON.stringify(detail);
+              })
+              .join(', ');
+          } else if (typeof responseData.details === 'object') {
+            // Try to extract meaningful message from details object
+            if (responseData.details.message) {
+              errorMessage = responseData.details.message;
+            } else {
+              errorMessage = Object.values(responseData.details)
+                .filter(v => v)
+                .map(v => typeof v === 'string' ? v : JSON.stringify(v))
+                .join(', ') || 'Validation error';
+            }
+          }
+        } else if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        } else if (responseData.error) {
+          errorMessage = typeof responseData.error === 'string'
+            ? responseData.error
+            : JSON.stringify(responseData.error);
+        } else if (Array.isArray(responseData)) {
+          errorMessage = responseData
+            .map((err: any) => err.message || JSON.stringify(err))
+            .join(', ');
+        } else {
+          // Last resort: stringify the whole response
+          errorMessage = 'Validation error. Check console for details.';
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Ensure we always have a string (never pass an object to showToast)
+      if (typeof errorMessage !== 'string') {
+        errorMessage = String(errorMessage);
+      }
+      
+      // Limit message length to avoid UI issues
+      if (errorMessage.length > 200) {
+        errorMessage = errorMessage.substring(0, 200) + '...';
+      }
+      
       showToast(errorMessage, 'error');
     },
   });
