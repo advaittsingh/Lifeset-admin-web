@@ -226,7 +226,7 @@ export default function CreateGeneralKnowledgePage() {
         categoryId: data.categoryId || undefined,
         images: imageUrl ? [imageUrl] : [],
         isActive: data.isActive,
-        isPublished: data.isPublished,
+        // Note: General Knowledge backend doesn't accept isPublished at top-level
         language: data.language || 'ENGLISH', // Backend now accepts language at top-level
         metadata: {
           fullArticle: data.fullArticle,
@@ -279,7 +279,7 @@ export default function CreateGeneralKnowledgePage() {
         categoryId: data.categoryId || undefined,
         images: imageUrl ? [imageUrl] : [],
         isActive: data.isActive,
-        isPublished: data.isPublished,
+        // Note: General Knowledge backend doesn't accept isPublished at top-level
         language: data.language || 'ENGLISH', // Backend now accepts language at top-level
         metadata: {
           fullArticle: data.fullArticle,
@@ -327,11 +327,12 @@ export default function CreateGeneralKnowledgePage() {
       return;
     }
 
-    const publishData = { ...formData, isPublished: true };
+    // Note: General Knowledge backend doesn't accept isPublished field
+    // Articles are published when created/updated
     if (isEditMode) {
-      updateMutation.mutate(publishData);
+      updateMutation.mutate(formData);
     } else {
-      createMutation.mutate(publishData);
+      createMutation.mutate(formData);
     }
   };
 
