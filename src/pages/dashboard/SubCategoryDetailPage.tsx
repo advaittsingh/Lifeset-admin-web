@@ -38,13 +38,13 @@ export default function SubCategoryDetailPage() {
   });
 
   // Fetch parent category
-  const { data: parentCategory } = useQuery<WallCategory>({
+  const { data: parentCategory } = useQuery<WallCategory | null>({
     queryKey: ['wall-category', subCategoryData?.parentCategoryId],
     queryFn: async () => {
       if (!subCategoryData?.parentCategoryId) return null;
       const allCategories = await postsApi.getWallCategories();
       return Array.isArray(allCategories)
-        ? allCategories.find((cat: WallCategory) => cat.id === subCategoryData.parentCategoryId) || null
+        ? (allCategories.find((cat: WallCategory) => cat.id === subCategoryData.parentCategoryId) as WallCategory | undefined) || null
         : null;
     },
     enabled: !!subCategoryData?.parentCategoryId,
