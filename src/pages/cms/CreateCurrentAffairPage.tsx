@@ -29,6 +29,8 @@ export default function CreateCurrentAffairPage() {
     options: ['', '', '', ''],
     correctAnswer: 0,
     categoryId: '',
+    subCategoryId: '',
+    chapterId: '',
     explanation: '',
   });
   const [createdMcqs, setCreatedMcqs] = useState<any[]>([]);
@@ -95,13 +97,25 @@ export default function CreateCurrentAffairPage() {
 
   const chapters = chaptersData || [];
 
-  // Fetch MCQ categories
-  const { data: mcqCategoriesData } = useQuery({
-    queryKey: ['mcq-categories'],
-    queryFn: () => cmsApi.getMcqCategories(),
+  // Fetch sub-categories for the selected MCQ category (in dialog)
+  const { data: mcqSubCategoriesData } = useQuery({
+    queryKey: ['wall-subcategories', mcqFormData.categoryId],
+    queryFn: () =>
+      mcqFormData.categoryId ? postsApi.getWallSubCategories(mcqFormData.categoryId) : [],
+    enabled: !!mcqFormData.categoryId,
   });
 
-  const mcqCategories = Array.isArray(mcqCategoriesData) ? mcqCategoriesData : (mcqCategoriesData?.data || []);
+  const mcqSubCategories = mcqSubCategoriesData || [];
+
+  // Fetch chapters for the selected MCQ sub-category (in dialog)
+  const { data: mcqChaptersData } = useQuery<Chapter[]>({
+    queryKey: ['chapters', mcqFormData.subCategoryId],
+    queryFn: () =>
+      mcqFormData.subCategoryId ? cmsApi.getChaptersBySubCategory(mcqFormData.subCategoryId) : [],
+    enabled: !!mcqFormData.subCategoryId,
+  });
+
+  const mcqChapters = mcqChaptersData || [];
 
   // Sub-category options removed - sub-categories are now simple text input
 
@@ -488,15 +502,13 @@ export default function CreateCurrentAffairPage() {
 
   // MCQ Dialog handlers
   const handleOpenMcqDialog = () => {
-    // Pre-fill MCQ category if available
-    if (formData.categoryId) {
-      const matchingCategory = mcqCategories.find((cat: any) => 
-        cat.id === formData.categoryId
-      );
-      if (matchingCategory) {
-        setMcqFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
-      }
-    }
+    // Auto-populate category, sub-category, and chapter from article
+    setMcqFormData(prev => ({
+      ...prev,
+      categoryId: formData.categoryId || '',
+      subCategoryId: formData.subCategoryId || '',
+      chapterId: formData.chapterId || '',
+    }));
     setIsMcqDialogOpen(true);
   };
 
@@ -508,6 +520,8 @@ export default function CreateCurrentAffairPage() {
       options: ['', '', '', ''],
       correctAnswer: 0,
       categoryId: '',
+      subCategoryId: '',
+      chapterId: '',
       explanation: '',
     });
     setCreatedMcqs([]);
@@ -536,10 +550,8 @@ export default function CreateCurrentAffairPage() {
         articleId: articleId || undefined,
         metadata: {
           articleId: articleId,
-          category: categoryName || undefined,
-          subCategory: formData.subCategoryId || undefined,
-          section: formData.section || undefined,
-          country: formData.country || undefined,
+          subCategoryId: data.subCategoryId || undefined,
+          chapterId: data.chapterId || undefined,
         },
       });
     },
@@ -548,12 +560,14 @@ export default function CreateCurrentAffairPage() {
       const createdMcq = Array.isArray(response) ? response[0] : response;
       setCreatedMcqs(prev => [...prev, createdMcq]);
       showToast('MCQ question created successfully', 'success');
-      // Reset form but keep dialog open
+      // Reset form but keep dialog open (keep category, sub-category, and chapter)
       setMcqFormData({
         question: '',
         options: ['', '', '', ''],
         correctAnswer: 0,
-        categoryId: mcqFormData.categoryId, // Keep category
+        categoryId: mcqFormData.categoryId,
+        subCategoryId: mcqFormData.subCategoryId,
+        chapterId: mcqFormData.chapterId,
         explanation: '',
       });
     },
@@ -1362,21 +1376,69 @@ export default function CreateCurrentAffairPage() {
 
             {/* MCQ Form */}
             <div className="space-y-4">
-              {/* Category */}
-              <div>
-                <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
-                <select
-                  value={mcqFormData.categoryId}
-                  onChange={(e) => setMcqFormData({ ...mcqFormData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Select a category</option>
-                  {mcqCategories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+              {/* Category and Basic Information */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Category */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Category</label>
+                  <select
+                    value={mcqFormData.categoryId}
+                    onChange={(e) => setMcqFormData({ 
+                      ...mcqFormData, 
+                      categoryId: e.target.value,
+                      subCategoryId: '', // Reset sub-category when category changes
+                      chapterId: '', // Reset chapter when category changes
+                    })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sub Category */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Sub Category</label>
+                  <select
+                    value={mcqFormData.subCategoryId}
+                    onChange={(e) => setMcqFormData({ 
+                      ...mcqFormData, 
+                      subCategoryId: e.target.value,
+                      chapterId: '', // Reset chapter when sub-category changes
+                    })}
+                    disabled={!mcqFormData.categoryId}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select a sub-category</option>
+                    {mcqSubCategories.map((subCat: any) => (
+                      <option key={subCat.id} value={subCat.id}>
+                        {subCat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Chapter */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Chapter</label>
+                  <select
+                    value={mcqFormData.chapterId}
+                    onChange={(e) => setMcqFormData({ ...mcqFormData, chapterId: e.target.value })}
+                    disabled={!mcqFormData.subCategoryId}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select a chapter</option>
+                    {mcqChapters.map((chapter: Chapter) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {chapter.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Question */}
