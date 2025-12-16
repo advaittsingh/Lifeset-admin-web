@@ -40,12 +40,13 @@ export default function SubCategoryDetailPage() {
   // Fetch parent category
   const { data: parentCategory } = useQuery<WallCategory | null>({
     queryKey: ['wall-category', subCategoryData?.parentCategoryId],
-    queryFn: async () => {
+    queryFn: async (): Promise<WallCategory | null> => {
       if (!subCategoryData?.parentCategoryId) return null;
       const allCategories = await postsApi.getWallCategories();
-      return Array.isArray(allCategories)
-        ? (allCategories.find((cat: WallCategory) => cat.id === subCategoryData.parentCategoryId) as WallCategory | undefined) || null
-        : null;
+      const found = Array.isArray(allCategories)
+        ? allCategories.find((cat: WallCategory) => cat.id === subCategoryData.parentCategoryId)
+        : undefined;
+      return found || null;
     },
     enabled: !!subCategoryData?.parentCategoryId,
   });
@@ -209,11 +210,11 @@ export default function SubCategoryDetailPage() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">{subCategoryData.name}</h1>
               <p className="text-slate-600 mt-1">
-                {parentCategory && (
+                {parentCategory ? (
                   <span className="text-sm">
                     Parent: <span className="font-medium">{parentCategory.name}</span>
                   </span>
-                )}
+                ) : null}
               </p>
             </div>
           </div>
