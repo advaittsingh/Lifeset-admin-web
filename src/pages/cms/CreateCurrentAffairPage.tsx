@@ -32,6 +32,9 @@ export default function CreateCurrentAffairPage() {
     subCategoryId: '',
     chapterId: '',
     explanation: '',
+    explanationImageFile: null as File | null,
+    explanationImagePreview: null as string | null,
+    explanationImageUrl: '',
   });
   const [createdMcqs, setCreatedMcqs] = useState<any[]>([]);
 
@@ -523,6 +526,9 @@ export default function CreateCurrentAffairPage() {
       subCategoryId: '',
       chapterId: '',
       explanation: '',
+      explanationImageFile: null,
+      explanationImagePreview: null,
+      explanationImageUrl: '',
     });
     setCreatedMcqs([]);
   };
@@ -533,11 +539,44 @@ export default function CreateCurrentAffairPage() {
     setMcqFormData({ ...mcqFormData, options: newOptions });
   };
 
+  // Handle MCQ explanation image upload
+  const handleMcqExplanationImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMcqFormData(prev => ({
+          ...prev,
+          explanationImageFile: file,
+          explanationImagePreview: reader.result as string,
+          explanationImageUrl: '',
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeMcqExplanationImage = () => {
+    setMcqFormData(prev => ({
+      ...prev,
+      explanationImageFile: null,
+      explanationImagePreview: null,
+      explanationImageUrl: '',
+    }));
+  };
+
   const createMcqMutation = useMutation({
     mutationFn: (data: typeof mcqFormData) => {
       const articleId = formData.articleId || id;
-      // Find category name from categories
-      const categoryName = categories.find((cat: any) => cat.id === formData.categoryId)?.name;
+      const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
       return cmsApi.createMcqQuestion({
         question: data.question,
         options: data.options.map((opt, idx) => ({
@@ -547,6 +586,7 @@ export default function CreateCurrentAffairPage() {
         correctAnswer: data.correctAnswer,
         categoryId: data.categoryId || undefined,
         explanation: data.explanation || undefined,
+        explanationImage: explanationImage || undefined,
         articleId: articleId || undefined,
         metadata: {
           articleId: articleId,
@@ -569,6 +609,9 @@ export default function CreateCurrentAffairPage() {
         subCategoryId: mcqFormData.subCategoryId,
         chapterId: mcqFormData.chapterId,
         explanation: '',
+        explanationImageFile: null,
+        explanationImagePreview: null,
+        explanationImageUrl: '',
       });
     },
     onError: () => showToast('Failed to create MCQ question', 'error'),
@@ -1501,6 +1544,49 @@ export default function CreateCurrentAffairPage() {
                   className="min-h-[80px]"
                   rows={4}
                 />
+                
+                {/* Explanation Image Upload */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Explanation Image (Optional)</label>
+                  {mcqFormData.explanationImagePreview ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={mcqFormData.explanationImagePreview}
+                        alt="Explanation preview"
+                        className="max-w-full h-auto max-h-64 rounded-lg border border-slate-300"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeMcqExplanationImage}
+                        className="absolute top-2 right-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleMcqExplanationImageUpload}
+                        className="hidden"
+                        id="mcq-explanation-image-upload"
+                      />
+                      <label
+                        htmlFor="mcq-explanation-image-upload"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
+                        <ImageIcon className="h-8 w-8 text-slate-400" />
+                        <span className="text-sm text-slate-600">
+                          Click to upload an image or drag and drop
+                        </span>
+                        <span className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

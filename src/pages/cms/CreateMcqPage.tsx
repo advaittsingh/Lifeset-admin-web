@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Eye, HelpCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Save, Eye, HelpCircle, Loader2, CheckCircle2, XCircle, Image as ImageIcon, X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi, Chapter } from '../../services/api/cms';
@@ -27,6 +27,9 @@ export default function CreateMcqPage() {
     subCategoryId: '',
     chapterId: '',
     explanation: '',
+    explanationImageFile: null as File | null,
+    explanationImagePreview: null as string | null,
+    explanationImageUrl: '',
     articleId: '', // Link to article
   });
 
@@ -124,28 +127,35 @@ export default function CreateMcqPage() {
         subCategoryId: metadata.subCategoryId || '',
         chapterId: metadata.chapterId || '',
         explanation: existingQuestion.explanation || '',
+        explanationImageFile: null,
+        explanationImagePreview: existingQuestion.explanationImage || null,
+        explanationImageUrl: existingQuestion.explanationImage || '',
         articleId: metadata.articleId || existingQuestion.articleId || '',
       });
     }
   }, [existingQuestion, isEditMode]);
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => cmsApi.createMcqQuestion({
-      question: data.question,
-      options: data.options.map((opt, idx) => ({
-        text: opt,
-        isCorrect: idx === data.correctAnswer,
-      })),
-      correctAnswer: data.correctAnswer,
-      categoryId: data.categoryId || undefined,
-      explanation: data.explanation || undefined,
-      articleId: data.articleId || undefined, // Link to article
-      metadata: {
-        articleId: data.articleId,
-        subCategoryId: data.subCategoryId || undefined,
-        chapterId: data.chapterId || undefined,
-      },
-    }),
+    mutationFn: (data: typeof formData) => {
+      const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
+      return cmsApi.createMcqQuestion({
+        question: data.question,
+        options: data.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === data.correctAnswer,
+        })),
+        correctAnswer: data.correctAnswer,
+        categoryId: data.categoryId || undefined,
+        explanation: data.explanation || undefined,
+        explanationImage: explanationImage || undefined,
+        articleId: data.articleId || undefined, // Link to article
+        metadata: {
+          articleId: data.articleId,
+          subCategoryId: data.subCategoryId || undefined,
+          chapterId: data.chapterId || undefined,
+        },
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
       showToast('MCQ question created successfully', 'success');
@@ -155,21 +165,25 @@ export default function CreateMcqPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: typeof formData) => cmsApi.updateMcqQuestion(id!, {
-      question: data.question,
-      options: data.options.map((opt, idx) => ({
-        text: opt,
-        isCorrect: idx === data.correctAnswer,
-      })),
-      correctAnswer: data.correctAnswer,
-      categoryId: data.categoryId || undefined,
-      explanation: data.explanation || undefined,
-      metadata: {
-        articleId: data.articleId || undefined,
-        subCategoryId: data.subCategoryId || undefined,
-        chapterId: data.chapterId || undefined,
-      },
-    }),
+    mutationFn: (data: typeof formData) => {
+      const explanationImage = data.explanationImagePreview || data.explanationImageUrl;
+      return cmsApi.updateMcqQuestion(id!, {
+        question: data.question,
+        options: data.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === data.correctAnswer,
+        })),
+        correctAnswer: data.correctAnswer,
+        categoryId: data.categoryId || undefined,
+        explanation: data.explanation || undefined,
+        explanationImage: explanationImage || undefined,
+        metadata: {
+          articleId: data.articleId || undefined,
+          subCategoryId: data.subCategoryId || undefined,
+          chapterId: data.chapterId || undefined,
+        },
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
       queryClient.invalidateQueries({ queryKey: ['mcq-question', id] });
@@ -204,6 +218,40 @@ export default function CreateMcqPage() {
     const newOptions = [...formData.options];
     newOptions[index] = value;
     setFormData({ ...formData, options: newOptions });
+  };
+
+  // Handle explanation image upload
+  const handleExplanationImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          explanationImageFile: file,
+          explanationImagePreview: reader.result as string,
+          explanationImageUrl: '',
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeExplanationImage = () => {
+    setFormData(prev => ({
+      ...prev,
+      explanationImageFile: null,
+      explanationImagePreview: null,
+      explanationImageUrl: '',
+    }));
   };
 
   if (isLoadingQuestion && isEditMode) {
@@ -399,6 +447,49 @@ export default function CreateMcqPage() {
                   className="mt-1 min-h-[80px]"
                   rows={4}
                 />
+                
+                {/* Explanation Image Upload */}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Explanation Image (Optional)</label>
+                  {formData.explanationImagePreview ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={formData.explanationImagePreview}
+                        alt="Explanation preview"
+                        className="max-w-full h-auto max-h-64 rounded-lg border border-slate-300"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeExplanationImage}
+                        className="absolute top-2 right-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleExplanationImageUpload}
+                        className="hidden"
+                        id="explanation-image-upload"
+                      />
+                      <label
+                        htmlFor="explanation-image-upload"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
+                        <ImageIcon className="h-8 w-8 text-slate-400" />
+                        <span className="text-sm text-slate-600">
+                          Click to upload an image or drag and drop
+                        </span>
+                        <span className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
