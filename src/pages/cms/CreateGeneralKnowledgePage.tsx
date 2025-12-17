@@ -407,7 +407,8 @@ export default function CreateGeneralKnowledgePage() {
         setFormData(prev => ({ ...prev, articleId }));
       }
       showToast('General knowledge article created successfully', 'success');
-      // Don't navigate away - allow creating MCQ or publishing
+      // Navigate to all articles page after successful creation
+      navigate('/cms/general-knowledge');
     },
     onError: (error: any) => {
       // Log full error details for debugging

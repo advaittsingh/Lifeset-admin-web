@@ -414,7 +414,8 @@ export default function CreateCurrentAffairPage() {
         setFormData(prev => ({ ...prev, articleId }));
       }
       showToast('Current affair created successfully', 'success');
-      // Don't navigate away - allow creating MCQ
+      // Navigate to all articles page after successful creation
+      navigate('/cms/current-affairs');
     },
     onError: (error: any) => {
       // Log full error details for debugging
