@@ -701,20 +701,23 @@ export default function CreateCurrentAffairPage() {
       await queryClient.refetchQueries({ queryKey: ['mcq-questions'] });
       const createdMcq = Array.isArray(response) ? response[0] : response;
       setCreatedMcqs(prev => [...prev, createdMcq]);
-      showToast('MCQ question created successfully', 'success');
-      // Reset form but keep dialog open (keep category, sub-category, and chapter)
+      showToast('MCQ question published successfully', 'success');
+      // Close the dialog after successful creation
+      setIsMcqDialogOpen(false);
+      // Reset form
       setMcqFormData({
         question: '',
         options: ['', '', '', ''],
         correctAnswer: 0,
-        categoryId: mcqFormData.categoryId,
-        subCategoryId: mcqFormData.subCategoryId,
-        chapterId: mcqFormData.chapterId,
+        categoryId: '',
+        subCategoryId: '',
+        chapterId: '',
         explanation: '',
         explanationImageFile: null,
         explanationImagePreview: null,
         explanationImageUrl: '',
       });
+      setCreatedMcqs([]);
     },
     onError: () => showToast('Failed to create MCQ question', 'error'),
   });
@@ -1672,39 +1675,24 @@ export default function CreateCurrentAffairPage() {
               </div>
             </div>
           </div>
-          <DialogFooter className="flex items-center justify-between">
-            <div className="text-sm text-slate-600">
-              {createdMcqs.length > 0 && (
-                <span className="text-emerald-600 font-medium">
-                  {createdMcqs.length} MCQ{createdMcqs.length !== 1 ? 's' : ''} created
-                </span>
+          <DialogFooter className="flex items-center justify-end">
+            <Button
+              onClick={handleCreateMcq}
+              disabled={createMcqMutation.isPending}
+              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
+            >
+              {createMcqMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Publish
+                </>
               )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={handleCloseMcqDialog}
-              >
-                Done
-              </Button>
-              <Button
-                onClick={handleCreateMcq}
-                disabled={createMcqMutation.isPending}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-              >
-                {createMcqMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add MCQ
-                  </>
-                )}
-              </Button>
-            </div>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
