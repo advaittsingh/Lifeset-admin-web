@@ -304,6 +304,10 @@ export default function SubCategoryDetailPage() {
                                   chapterId: item.metadata?.chapterId || '',
                                   articleId: item.id,
                                 });
+                                // Add article image if available
+                                if (item.images && item.images.length > 0 && item.images[0]) {
+                                  params.append('articleImageUrl', item.images[0]);
+                                }
                                 navigate(`/cms/mcq/create?${params.toString()}`);
                               }}
                               title="Create MCQ from this article"

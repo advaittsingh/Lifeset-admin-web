@@ -75,6 +75,7 @@ export default function CreateMcqPage() {
       const categoryIdParam = searchParams.get('categoryId');
       const subCategoryIdParam = searchParams.get('subCategoryId');
       const chapterIdParam = searchParams.get('chapterId');
+      const articleImageUrlParam = searchParams.get('articleImageUrl');
 
       if (categoryIdParam) {
         setFormData(prev => ({ ...prev, categoryId: categoryIdParam }));
@@ -88,6 +89,8 @@ export default function CreateMcqPage() {
       if (articleIdParam) {
         setFormData(prev => ({ ...prev, articleId: articleIdParam }));
       }
+      // Don't auto-populate article image - let user choose via button
+      // The articleImageUrl will be available via searchParams for the button
 
       // Pre-fill question with context if available
       if (categoryParam || subCategoryParam || sectionParam || countryParam) {
@@ -441,6 +444,39 @@ export default function CreateMcqPage() {
                   className="mt-1 min-h-[100px]"
                   rows={4}
                 />
+                
+                {/* Article Image Option - Show if articleImageUrl is available from URL params */}
+                {searchParams.get('articleImageUrl') && !formData.questionImagePreview && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-blue-900 mb-1">Article Image Available</p>
+                        <p className="text-xs text-blue-700">Use the image from the article as the question image</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const articleImageUrl = searchParams.get('articleImageUrl');
+                          if (articleImageUrl) {
+                            setFormData(prev => ({
+                              ...prev,
+                              questionImageUrl: articleImageUrl,
+                              questionImagePreview: articleImageUrl,
+                              questionImageFile: null,
+                            }));
+                            showToast('Article image set as question image', 'success');
+                          }
+                        }}
+                        className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                      >
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        Use Article Image
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Question Image Upload */}
                 <div className="mt-4">
