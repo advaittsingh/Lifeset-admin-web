@@ -211,7 +211,6 @@ export default function CreateCurrentAffairPage() {
     },
     enabled: isEditMode && !!id,
     staleTime: 0, // Always fetch fresh data when editing
-    cacheTime: 0, // Don't cache to avoid stale data
   });
 
   // Reset form when ID changes (switching between edit/create modes or different items)
