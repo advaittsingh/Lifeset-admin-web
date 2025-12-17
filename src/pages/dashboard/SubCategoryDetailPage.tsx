@@ -11,6 +11,22 @@ import { postsApi, WallCategory } from '../../services/api/posts';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
+// Helper function to strip HTML tags and get plain text
+const stripHtmlTags = (html: string): string => {
+  if (!html) return '';
+  try {
+    // Use DOMParser to safely parse HTML without executing scripts
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const plainText = doc.body.textContent || doc.body.innerText || '';
+    return plainText.trim();
+  } catch (error) {
+    // Fallback: strip HTML tags using regex if DOMParser fails
+    const plainText = html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ');
+    return plainText.trim();
+  }
+};
+
 export default function SubCategoryDetailPage() {
   const { categoryId, subCategoryId } = useParams<{ categoryId: string; subCategoryId: string }>();
   const navigate = useNavigate();
@@ -272,7 +288,7 @@ export default function SubCategoryDetailPage() {
                               )}
                               <h3 className="font-semibold text-lg">{item.title}</h3>
                             </div>
-                            <p className="text-slate-600 mb-2 line-clamp-2">{item.description}</p>
+                            <p className="text-slate-600 mb-2 line-clamp-2">{stripHtmlTags(item.description || '')}</p>
                             <p className="text-xs text-slate-500">
                               {new Date(item.createdAt).toLocaleDateString()}
                             </p>

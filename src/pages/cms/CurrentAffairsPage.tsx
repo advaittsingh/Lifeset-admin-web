@@ -10,6 +10,22 @@ import { Plus, Edit, Trash2, Loader2, AlertCircle, Newspaper, HelpCircle } from 
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
+// Helper function to strip HTML tags and get plain text
+const stripHtmlTags = (html: string): string => {
+  if (!html) return '';
+  try {
+    // Use DOMParser to safely parse HTML without executing scripts
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const plainText = doc.body.textContent || doc.body.innerText || '';
+    return plainText.trim();
+  } catch (error) {
+    // Fallback: strip HTML tags using regex if DOMParser fails
+    const plainText = html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ');
+    return plainText.trim();
+  }
+};
+
 export default function CurrentAffairsPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,7 +143,7 @@ export default function CurrentAffairsPage() {
                               <Newspaper className="h-4 w-4 text-blue-600" />
                               <h3 className="font-semibold text-lg">{item.title}</h3>
                             </div>
-                            <p className="text-slate-600 mb-2 line-clamp-2">{item.description}</p>
+                            <p className="text-slate-600 mb-2 line-clamp-2">{stripHtmlTags(item.description || '')}</p>
                             <p className="text-xs text-slate-500">
                               {new Date(item.createdAt).toLocaleDateString()}
                             </p>
