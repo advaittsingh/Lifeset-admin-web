@@ -112,32 +112,44 @@ export default function CreateKnowYourselfPage() {
     }));
   };
 
+  const [isPublishing, setIsPublishing] = useState(false);
+
   const createMutation = useMutation({
     mutationFn: (data: any) => cmsApi.createPersonalityQuestion(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['personality-questions'] });
-      showToast('Question created successfully', 'success');
+      const message = variables.isPublished 
+        ? 'Question published successfully' 
+        : 'Question saved as draft successfully';
+      showToast(message, 'success');
+      setIsPublishing(false);
       navigate('/cms/know-yourself');
     },
     onError: (error: any) => {
       showToast(error?.response?.data?.message || 'Failed to create question', 'error');
+      setIsPublishing(false);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => cmsApi.updatePersonalityQuestion(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['personality-questions'] });
       queryClient.invalidateQueries({ queryKey: ['personality-question', id] });
-      showToast('Question updated successfully', 'success');
+      const message = variables.data.isPublished 
+        ? 'Question published successfully' 
+        : 'Question saved as draft successfully';
+      showToast(message, 'success');
+      setIsPublishing(false);
       navigate('/cms/know-yourself');
     },
     onError: (error: any) => {
       showToast(error?.response?.data?.message || 'Failed to update question', 'error');
+      setIsPublishing(false);
     },
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = (isPublished: boolean = false) => {
     if (!formData.question.trim()) {
       showToast('Please enter a question', 'error');
       return;
@@ -151,6 +163,8 @@ export default function CreateKnowYourselfPage() {
       return;
     }
 
+    setIsPublishing(isPublished);
+
     const imageUrl = formData.imagePreview || formData.imageUrl;
     
     const submitData = {
@@ -160,6 +174,7 @@ export default function CreateKnowYourselfPage() {
       options: formData.options,
       order: formData.order,
       imageUrl: imageUrl || undefined,
+      isPublished: isPublished,
     };
 
     if (isEditMode && id) {
@@ -206,29 +221,29 @@ export default function CreateKnowYourselfPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={handleSubmit}
+              onClick={() => handleSubmit(false)}
               disabled={createMutation.isPending || updateMutation.isPending}
               className="border-slate-300"
             >
-              {(createMutation.isPending || updateMutation.isPending) ? (
+              {(createMutation.isPending || updateMutation.isPending) && !isPublishing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isEditMode ? 'Saving...' : 'Saving...'}
+                  Saving...
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Save
+                  Save as Draft
                 </>
               )}
             </Button>
             <Button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => handleSubmit(true)}
               disabled={createMutation.isPending || updateMutation.isPending}
               className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
             >
-              {(createMutation.isPending || updateMutation.isPending) ? (
+              {(createMutation.isPending || updateMutation.isPending) && isPublishing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Publishing...
