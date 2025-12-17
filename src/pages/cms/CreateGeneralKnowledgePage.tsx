@@ -766,8 +766,11 @@ export default function CreateGeneralKnowledgePage() {
         },
       });
     },
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+    onSuccess: async (response) => {
+      // Invalidate all MCQ queries to ensure they appear in the MCQ page
+      await queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+      // Also refetch to ensure immediate visibility
+      await queryClient.refetchQueries({ queryKey: ['mcq-questions'] });
       const createdMcq = Array.isArray(response) ? response[0] : response;
       setCreatedMcqs(prev => [...prev, createdMcq]);
       showToast('MCQ question created successfully', 'success');

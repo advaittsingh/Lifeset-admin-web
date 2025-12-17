@@ -169,8 +169,11 @@ export default function CreateMcqPage() {
       },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+    onSuccess: async () => {
+      // Invalidate all MCQ queries (including filtered ones)
+      await queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+      // Refetch to ensure immediate visibility
+      await queryClient.refetchQueries({ queryKey: ['mcq-questions'] });
       showToast('MCQ question created successfully', 'success');
       navigate('/cms/mcq');
     },
@@ -201,9 +204,12 @@ export default function CreateMcqPage() {
         },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
-      queryClient.invalidateQueries({ queryKey: ['mcq-question', id] });
+    onSuccess: async () => {
+      // Invalidate all MCQ queries (including filtered ones)
+      await queryClient.invalidateQueries({ queryKey: ['mcq-questions'] });
+      await queryClient.invalidateQueries({ queryKey: ['mcq-question', id] });
+      // Refetch to ensure immediate visibility
+      await queryClient.refetchQueries({ queryKey: ['mcq-questions'] });
       showToast('MCQ question updated successfully', 'success');
       navigate('/cms/mcq');
     },
