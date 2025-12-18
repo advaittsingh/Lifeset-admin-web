@@ -43,6 +43,8 @@ export default function CreateCurrentAffairPage() {
     title: '',
     description: '',
     fullArticle: '',
+    category: '',
+    subCategory: '',
     categoryId: '',
     subCategoryId: '',
     chapterId: '',
@@ -202,6 +204,8 @@ export default function CreateCurrentAffairPage() {
         title: '',
         description: '',
         fullArticle: '',
+        category: '',
+        subCategory: '',
         categoryId: '',
         subCategoryId: '',
         chapterId: '',
@@ -290,6 +294,8 @@ export default function CreateCurrentAffairPage() {
         title: item.title || '',
         description: item.description || '',
         fullArticle: item.fullArticle || metadata.fullArticle || '',
+        category: category,
+        subCategory: item.subCategory || metadata.subCategory || '',
         categoryId: item.categoryId || '',
         subCategoryId: item.subCategoryId || metadata.subCategoryId || '',
         chapterId: item.chapterId || metadata.chapterId || '',
@@ -622,10 +628,13 @@ export default function CreateCurrentAffairPage() {
   };
 
   const handleCategoryChange = (value: string) => {
+    const selectedCategory = categories.find((cat: any) => cat.id === value);
     setFormData(prev => ({
       ...prev,
       categoryId: value,
+      category: selectedCategory?.name || prev.category,
       subCategoryId: '',
+      subCategory: '',
     }));
   };
 
@@ -930,9 +939,15 @@ export default function CreateCurrentAffairPage() {
                     <label className="text-sm font-semibold text-slate-700">Sub Category</label>
                     <select
                       value={formData.subCategoryId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, subCategoryId: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const selected = subCategories.find((sub: any) => sub.id === value);
+                        setFormData({
+                          ...formData,
+                          subCategoryId: value,
+                          subCategory: selected?.name || '',
+                        });
+                      }}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       disabled={!formData.categoryId || subCategories.length === 0}
                     >
