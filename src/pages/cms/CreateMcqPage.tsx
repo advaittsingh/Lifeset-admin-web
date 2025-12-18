@@ -124,6 +124,7 @@ export default function CreateMcqPage() {
   // Update form when existing question loads
   useEffect(() => {
     if (existingQuestion && isEditMode) {
+      // Read from top level (new structure) or metadata (backward compatibility)
       const metadata = existingQuestion.metadata || {};
       setFormData({
         question: existingQuestion.question || '',
@@ -133,13 +134,13 @@ export default function CreateMcqPage() {
         options: existingQuestion.options?.map((opt: any) => opt.text || opt) || ['', '', '', ''],
         correctAnswer: existingQuestion.correctAnswer || 0,
         categoryId: existingQuestion.categoryId || '',
-        subCategoryId: metadata.subCategoryId || '',
-        chapterId: metadata.chapterId || '',
+        subCategoryId: existingQuestion.subCategoryId || metadata.subCategoryId || '', // Read from top level first
+        chapterId: existingQuestion.chapterId || metadata.chapterId || '', // Read from top level first
         explanation: existingQuestion.explanation || '',
         explanationImageFile: null,
         explanationImagePreview: existingQuestion.explanationImage || null,
         explanationImageUrl: existingQuestion.explanationImage || '',
-        articleId: metadata.articleId || existingQuestion.articleId || '',
+        articleId: existingQuestion.articleId || metadata.articleId || '',
       });
     }
   }, [existingQuestion, isEditMode]);
@@ -150,24 +151,31 @@ export default function CreateMcqPage() {
       const questionImage = (data.questionImagePreview || data.questionImageUrl)?.trim();
       const explanationImage = (data.explanationImagePreview || data.explanationImageUrl)?.trim();
       
-      return cmsApi.createMcqQuestion({
-      question: data.question,
-      ...(questionImage ? { questionImage } : {}), // Only include if it has a value
-      options: data.options.map((opt, idx) => ({
-        text: opt,
-        isCorrect: idx === data.correctAnswer,
-      })),
-      correctAnswer: data.correctAnswer,
-      categoryId: data.categoryId || undefined,
-      explanation: data.explanation || undefined,
-      ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
-      articleId: data.articleId || undefined, // Link to article
-      metadata: {
-        articleId: data.articleId,
-          subCategoryId: data.subCategoryId || undefined,
-          chapterId: data.chapterId || undefined,
-      },
+      // Build payload with all fields at top level (no metadata object)
+      const payload: any = {
+        question: data.question,
+        ...(questionImage ? { questionImage } : {}), // Only include if it has a value
+        options: data.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === data.correctAnswer,
+        })),
+        correctAnswer: data.correctAnswer,
+        categoryId: data.categoryId || undefined,
+        explanation: data.explanation || undefined,
+        ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
+        articleId: data.articleId || undefined, // Link to article
+        subCategoryId: data.subCategoryId || undefined, // At top level, not in metadata
+        chapterId: data.chapterId || undefined, // At top level, not in metadata
+      };
+      
+      // Remove undefined values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined) {
+          delete payload[key];
+        }
       });
+      
+      return cmsApi.createMcqQuestion(payload);
     },
     onSuccess: async () => {
       // Invalidate all MCQ queries (including filtered ones)
@@ -186,23 +194,31 @@ export default function CreateMcqPage() {
       const questionImage = (data.questionImagePreview || data.questionImageUrl)?.trim();
       const explanationImage = (data.explanationImagePreview || data.explanationImageUrl)?.trim();
       
-      return cmsApi.updateMcqQuestion(id!, {
-      question: data.question,
-      ...(questionImage ? { questionImage } : {}), // Only include if it has a value
-      options: data.options.map((opt, idx) => ({
-        text: opt,
-        isCorrect: idx === data.correctAnswer,
-      })),
-      correctAnswer: data.correctAnswer,
-      categoryId: data.categoryId || undefined,
-      explanation: data.explanation || undefined,
-      ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
-        metadata: {
+      // Build payload with all fields at top level (no metadata object)
+      const payload: any = {
+        question: data.question,
+        ...(questionImage ? { questionImage } : {}), // Only include if it has a value
+        options: data.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === data.correctAnswer,
+        })),
+        correctAnswer: data.correctAnswer,
+        categoryId: data.categoryId || undefined,
+        explanation: data.explanation || undefined,
+        ...(explanationImage ? { explanationImage } : {}), // Only include if it has a value
         articleId: data.articleId || undefined,
-          subCategoryId: data.subCategoryId || undefined,
-          chapterId: data.chapterId || undefined,
-        },
+        subCategoryId: data.subCategoryId || undefined, // At top level, not in metadata
+        chapterId: data.chapterId || undefined, // At top level, not in metadata
+      };
+      
+      // Remove undefined values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined) {
+          delete payload[key];
+        }
       });
+      
+      return cmsApi.updateMcqQuestion(id!, payload);
     },
     onSuccess: async () => {
       // Invalidate all MCQ queries (including filtered ones)

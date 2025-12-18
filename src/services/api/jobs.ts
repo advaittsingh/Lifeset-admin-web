@@ -80,16 +80,6 @@ export const jobsApi = {
         const filtered = value.filter(v => v !== undefined && v !== null && v !== '');
         return filtered.length > 0 ? filtered : undefined;
       }
-      if (typeof value === 'object') {
-        const cleaned: any = {};
-        for (const key in value) {
-          const cleanedVal = cleanValue(value[key]);
-          if (cleanedVal !== undefined) {
-            cleaned[key] = cleanedVal;
-          }
-        }
-        return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-      }
       return value;
     };
 
@@ -100,45 +90,57 @@ export const jobsApi = {
       return isNaN(parsed) ? undefined : parsed;
     };
 
-    // Build metadata object and clean it
-    const metadata: any = {
-      location: data.location,
-      salaryMin: data.salaryMin,
-      salaryMax: data.salaryMax,
-      experience: data.experience ? (parseNumber(data.experience) ?? data.experience) : undefined,
-      skills: data.skills && data.skills.length > 0 ? data.skills : undefined,
-      applicationDeadline: data.applicationDeadline,
-      companyName: data.companyName,
-      industry: data.industry,
-      selectRole: data.selectRole,
-      clientToManage: data.clientToManage,
-      workingDays: data.workingDays,
-      yearlySalary: data.yearlySalary,
-      function: data.function,
-      jobType: data.jobType,
-      capacity: data.capacity ? (parseNumber(data.capacity) ?? data.capacity) : undefined,
-      workTime: data.workTime,
-      perksAndBenefits: data.perksAndBenefits,
-      candidateQualities: data.candidateQualities && data.candidateQualities.length > 0 ? data.candidateQualities : undefined,
-      isPublic: data.isPublic,
-      isPrivate: data.isPrivate,
-      privateFilters: data.isPrivate && data.privateFilters ? data.privateFilters : undefined,
+    // Map jobType to enum values
+    const mapJobTypeToEnum = (jobType?: string): string | undefined => {
+      if (!jobType) return undefined;
+      const mapping: Record<string, string> = {
+        'Full-time': 'FULL_TIME',
+        'Part-time': 'PART_TIME',
+        'Contract': 'CONTRACT',
+        'Internship': 'INTERNSHIP',
+        'Freelance': 'FREELANCE',
+      };
+      return mapping[jobType] || jobType.toUpperCase();
     };
 
-    // Clean the metadata object
-    const cleanedMetadata = cleanValue(metadata);
-
-    // Build the request payload
+    // Build payload with all fields at top level (no metadata object)
     const payload: any = {
       title: data.jobTitle.trim(),
       description: data.jobDescription.trim(),
       postType: 'JOB',
+      companyName: cleanValue(data.companyName),
+      industry: cleanValue(data.industry),
+      jobLocation: cleanValue(data.location), // Renamed from 'location'
+      jobType: mapJobTypeToEnum(data.jobType), // Convert to enum
+      jobFunction: cleanValue(data.function), // Renamed from 'function'
+      salaryMin: data.salaryMin,
+      salaryMax: data.salaryMax,
+      experience: data.experience ? (parseNumber(data.experience) ?? data.experience) : undefined,
+      skills: data.skills && data.skills.length > 0 ? data.skills : undefined,
+      applicationDeadline: cleanValue(data.applicationDeadline),
+      selectRole: cleanValue(data.selectRole),
+      clientToManage: cleanValue(data.clientToManage),
+      workingDays: cleanValue(data.workingDays),
+      yearlySalary: cleanValue(data.yearlySalary),
+      capacity: data.capacity ? (parseNumber(data.capacity) ?? data.capacity) : undefined,
+      workTime: cleanValue(data.workTime),
+      perksAndBenefits: cleanValue(data.perksAndBenefits),
+      candidateQualities: data.candidateQualities && data.candidateQualities.length > 0 ? data.candidateQualities : undefined,
+      isPublic: data.isPublic,
+      isPrivate: data.isPrivate,
+      // Flatten privateFilters
+      privateFiltersCollege: data.isPrivate && data.privateFilters?.selectCollege ? data.privateFilters.selectCollege : undefined,
+      privateFiltersCourse: data.isPrivate && data.privateFilters?.selectCourse ? data.privateFilters.selectCourse : undefined,
+      privateFiltersCourseCategory: data.isPrivate && data.privateFilters?.selectCourseCategory ? data.privateFilters.selectCourseCategory : undefined,
+      privateFiltersYear: data.isPrivate && data.privateFilters?.selectYear ? data.privateFilters.selectYear : undefined,
     };
 
-    // Only include metadata if it has values
-    if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
-      payload.metadata = cleanedMetadata;
-    }
+    // Remove undefined values
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
 
     // Log the payload in development for debugging
     if (import.meta.env.DEV) {
