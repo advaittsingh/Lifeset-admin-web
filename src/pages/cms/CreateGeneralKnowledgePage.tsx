@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -162,9 +162,14 @@ export default function CreateGeneralKnowledgePage() {
     staleTime: 0, // Always fetch fresh data when editing
   });
 
+  // Track previous ID to only reset when ID actually changes
+  const prevIdRef = useRef<string | undefined>(undefined);
+
   // Reset form when ID changes (switching between edit/create modes or different items)
   useEffect(() => {
-    if (isEditMode && id) {
+    // Only reset if ID actually changed and we're entering edit mode
+    if (isEditMode && id && id !== prevIdRef.current) {
+      prevIdRef.current = id;
       // Reset form when entering edit mode with a new ID
       setFormData({
         title: '',
@@ -197,6 +202,9 @@ export default function CreateGeneralKnowledgePage() {
         notificationTime: '',
         articleId: '',
       });
+    } else if (!isEditMode) {
+      // Reset ref when leaving edit mode
+      prevIdRef.current = undefined;
     }
   }, [id, isEditMode]);
   
