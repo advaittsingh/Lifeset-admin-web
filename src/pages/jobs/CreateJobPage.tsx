@@ -174,7 +174,11 @@ export default function CreateJobPage() {
       });
     },
     onSuccess: () => {
+      // Invalidate both jobs and posts queries since jobs are stored as posts
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      // Force refetch to ensure fresh data
+      queryClient.refetchQueries({ queryKey: ['jobs'] });
       showToast('Job posted successfully', 'success');
       navigate('/jobs');
     },
@@ -239,8 +243,12 @@ export default function CreateJobPage() {
       } as any);
     },
     onSuccess: () => {
+      // Invalidate both jobs and posts queries since jobs are stored as posts
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['job', id] });
+      // Force refetch to ensure fresh data
+      queryClient.refetchQueries({ queryKey: ['jobs'] });
       showToast('Job updated successfully', 'success');
       navigate('/jobs');
     },

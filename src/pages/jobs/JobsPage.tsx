@@ -32,24 +32,30 @@ export default function JobsPage() {
         });
         // Transform posts to job format
         const posts = Array.isArray(postsResult) ? postsResult : (postsResult?.data || []);
-        return posts.map((post: any) => ({
-          id: post.id,
-          postId: post.id,
-          jobTitle: post.title,
-          jobDescription: post.description,
-          location: post.metadata?.location,
-          salaryMin: post.metadata?.salaryMin,
-          salaryMax: post.metadata?.salaryMax,
-          experience: post.metadata?.experience,
-          skills: post.metadata?.skills || [],
-          applicationDeadline: post.metadata?.applicationDeadline,
-          views: post.views || 0,
-          applications: post.applications || 0,
-          createdAt: post.createdAt,
-          updatedAt: post.updatedAt,
-          post: post, // Include full post object with all metadata
-          company: post.user || post.metadata?.companyName ? { companyName: post.metadata.companyName } : null,
-        }));
+        return posts.map((post: any) => {
+          // Read from top level (new structure) or metadata (backward compatibility)
+          const metadata = post.metadata || {};
+          return {
+            id: post.id,
+            postId: post.id,
+            jobTitle: post.title,
+            jobDescription: post.description,
+            location: post.jobLocation || metadata.location || post.location,
+            salaryMin: post.salaryMin || metadata.salaryMin,
+            salaryMax: post.salaryMax || metadata.salaryMax,
+            experience: post.experience || metadata.experience,
+            skills: post.skills || metadata.skills || [],
+            applicationDeadline: post.applicationDeadline || metadata.applicationDeadline,
+            views: post.views || 0,
+            applications: post.applications || 0,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            post: post, // Include full post object with all metadata
+            company: post.user || post.companyName || metadata.companyName ? { 
+              companyName: post.companyName || metadata.companyName 
+            } : null,
+          };
+        });
       } catch (err: any) {
         // If 401, it's an auth issue - let it bubble up
         if (err?.response?.status === 401) {
