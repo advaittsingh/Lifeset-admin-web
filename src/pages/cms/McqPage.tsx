@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Pagination } from '../../components/ui/pagination';
 import { Plus, Edit, Trash2, Loader2, AlertCircle, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { postsApi } from '../../services/api/posts';
@@ -16,14 +17,21 @@ export default function McqPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const { data: questionsData, isLoading } = useQuery({
-    queryKey: ['mcq-questions', searchTerm, categoryFilter],
-    queryFn: () => cmsApi.getMcqQuestions({ search: searchTerm || undefined, categoryId: categoryFilter || undefined }),
+    queryKey: ['mcq-questions', searchTerm, categoryFilter, page, limit],
+    queryFn: () => cmsApi.getMcqQuestions({ 
+      search: searchTerm || undefined, 
+      categoryId: categoryFilter || undefined,
+      page,
+      limit,
+    }),
   });
 
   // Fetch Wall Categories (parent categories) for filtering
@@ -32,8 +40,22 @@ export default function McqPage() {
     queryFn: () => postsApi.getWallCategories(),
   });
 
-  const questions = Array.isArray(questionsData) ? questionsData : (questionsData?.data || []);
+  // Handle paginated response structure
+  const questions = Array.isArray(questionsData) 
+    ? questionsData 
+    : (questionsData?.data || []);
+  const pagination = questionsData?.pagination || {
+    page: 1,
+    limit: limit,
+    total: questions.length,
+    totalPages: Math.ceil(questions.length / limit),
+  };
   const categories = categoriesData || [];
+
+  // Reset to page 1 when search or filter changes
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchTerm, categoryFilter]);
 
 
   const deleteMutation = useMutation({
@@ -170,6 +192,21 @@ export default function McqPage() {
                   ))
                 )}
               </div>
+            )}
+            
+            {/* Pagination */}
+            {!isLoading && questions.length > 0 && (
+              <Pagination
+                currentPage={pagination.page || page}
+                totalPages={pagination.totalPages || 1}
+                onPageChange={setPage}
+                itemsPerPage={limit}
+                totalItems={pagination.total || questions.length}
+                onItemsPerPageChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
             )}
           </CardContent>
         </Card>

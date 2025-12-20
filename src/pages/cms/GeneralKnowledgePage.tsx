@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Pagination } from '../../components/ui/pagination';
 import { Plus, Edit, Trash2, Loader2, BookOpen, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
@@ -29,17 +30,41 @@ const stripHtmlTags = (html: string): string => {
 export default function GeneralKnowledgePage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['general-knowledge', searchTerm],
-    queryFn: () => cmsApi.getGeneralKnowledge({ search: searchTerm || undefined }),
+    queryKey: ['general-knowledge', searchTerm, page, limit],
+    queryFn: async () => {
+      const result = await cmsApi.getGeneralKnowledge({ 
+        search: searchTerm || undefined,
+        page,
+        limit,
+      });
+      // Ensure consistent response structure
+      if (Array.isArray(result)) {
+        return { data: result, pagination: { page, limit, total: result.length, totalPages: 1 } };
+      }
+      return result;
+    },
   });
 
   const items = Array.isArray(data) ? data : (data?.data || []);
+  const pagination = data?.pagination || {
+    page: page,
+    limit: limit,
+    total: items.length,
+    totalPages: Math.ceil(items.length / limit),
+  };
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
 
   const deleteMutation = useMutation({
@@ -124,7 +149,16 @@ export default function GeneralKnowledgePage() {
                               <BookOpen className="h-4 w-4 text-blue-600" />
                               <h3 className="font-semibold text-lg">{item.title}</h3>
                             </div>
-                            <p className="text-slate-600 mb-2 line-clamp-2">{stripHtmlTags(item.description || '')}</p>
+                            <div 
+                              className="text-slate-600 mb-2 line-clamp-2"
+                              style={{ 
+                                overflow: 'hidden',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: item.description || '' }}
+                            />
                             <p className="text-xs text-slate-500">
                               {new Date(item.createdAt).toLocaleDateString()}
                             </p>
@@ -177,6 +211,21 @@ export default function GeneralKnowledgePage() {
                   ))
                 )}
               </div>
+            )}
+            
+            {/* Pagination */}
+            {!isLoading && items.length > 0 && (
+              <Pagination
+                currentPage={pagination.page || page}
+                totalPages={pagination.totalPages || 1}
+                onPageChange={setPage}
+                itemsPerPage={limit}
+                totalItems={pagination.total || items.length}
+                onItemsPerPageChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
             )}
           </CardContent>
         </Card>

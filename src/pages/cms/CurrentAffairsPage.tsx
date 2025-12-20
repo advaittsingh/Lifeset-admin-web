@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Pagination } from '../../components/ui/pagination';
 import { Plus, Edit, Trash2, Loader2, AlertCircle, Newspaper, HelpCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
@@ -29,37 +30,54 @@ const stripHtmlTags = (html: string): string => {
 export default function CurrentAffairsPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['current-affairs', searchTerm],
+    queryKey: ['current-affairs', searchTerm, page, limit],
     queryFn: async () => {
       try {
-        const result = await cmsApi.getCurrentAffairs({ search: searchTerm || undefined });
+        const result = await cmsApi.getCurrentAffairs({ 
+          search: searchTerm || undefined,
+          page,
+          limit,
+        });
         // Handle different response structures
         if (Array.isArray(result)) {
-          return result;
+          return { data: result, pagination: { page, limit, total: result.length, totalPages: 1 } };
         }
         if (result?.data && Array.isArray(result.data)) {
-          return result.data;
+          return result;
         }
         // If result is an object with nested data
         if (result && typeof result === 'object' && !Array.isArray(result)) {
-          return [];
+          return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
         }
-        return [];
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
       } catch (err: any) {
         console.error('Error fetching current affairs:', err);
         // Return empty array on error instead of throwing
-        return [];
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
       }
     },
   });
 
-  const items = Array.isArray(data) ? data : [];
+  const items = Array.isArray(data) ? data : (data?.data || []);
+  const pagination = data?.pagination || {
+    page: page,
+    limit: limit,
+    total: items.length,
+    totalPages: Math.ceil(items.length / limit),
+  };
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
 
   const deleteMutation = useMutation({
@@ -161,7 +179,16 @@ export default function CurrentAffairsPage() {
                               <Newspaper className="h-4 w-4 text-blue-600" />
                               <h3 className="font-semibold text-lg">{item.title}</h3>
                             </div>
-                            <p className="text-slate-600 mb-2 line-clamp-2">{stripHtmlTags(item.description || '')}</p>
+                            <div 
+                              className="text-slate-600 mb-2 line-clamp-2"
+                              style={{ 
+                                overflow: 'hidden',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: item.description || '' }}
+                            />
                             <p className="text-xs text-slate-500">
                               {new Date(item.createdAt).toLocaleDateString()}
                             </p>
@@ -212,6 +239,21 @@ export default function CurrentAffairsPage() {
                   ))
                 )}
               </div>
+            )}
+            
+            {/* Pagination */}
+            {!isLoading && items.length > 0 && (
+              <Pagination
+                currentPage={pagination.page || page}
+                totalPages={pagination.totalPages || 1}
+                onPageChange={setPage}
+                itemsPerPage={limit}
+                totalItems={pagination.total || items.length}
+                onItemsPerPageChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
             )}
           </CardContent>
         </Card>
