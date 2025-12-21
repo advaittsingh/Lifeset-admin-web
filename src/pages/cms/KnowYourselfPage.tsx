@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Plus, Edit, Trash2, Loader2, Brain, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Brain, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -14,12 +14,26 @@ export default function KnowYourselfPage() {
   const { showToast } = useToast();
   const [includeInactive, setIncludeInactive] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['personality-questions', includeInactive],
-    queryFn: () => cmsApi.getPersonalityQuestions({ includeInactive }),
+    queryFn: async () => {
+      try {
+        const result = await cmsApi.getPersonalityQuestions({ includeInactive });
+        console.log('Personality questions API response:', result);
+        return result;
+      } catch (err) {
+        console.error('Error fetching personality questions:', err);
+        throw err;
+      }
+    },
   });
 
-  const questions = Array.isArray(data) ? data : (data?.data || []);
+  // Handle different response structures
+  const questions = Array.isArray(data) 
+    ? data 
+    : (data?.data || (data && typeof data === 'object' && !Array.isArray(data) ? [] : []));
+  
+  console.log('Processed questions:', questions, 'Count:', questions.length);
 
 
   const deleteMutation = useMutation({
@@ -65,6 +79,20 @@ export default function KnowYourselfPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 text-red-800">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="font-semibold">Error loading questions</p>
+                    <p className="text-sm text-red-600 mt-1">
+                      {error instanceof Error ? error.message : 'Failed to fetch personality quiz questions'}
+                    </p>
+                    <p className="text-xs text-red-500 mt-1">Check browser console for details</p>
+                  </div>
+                </div>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />

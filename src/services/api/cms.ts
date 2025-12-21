@@ -116,7 +116,17 @@ export const cmsApi = {
     const response = await apiClient.get('/admin/cms/personality/questions', { 
       params: params?.includeInactive ? { includeInactive: true } : {}
     });
-    return response.data.data || response.data;
+    // Backend returns array directly or wrapped in { data: [...] }
+    // Handle both cases
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (response.data?.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+    // Fallback: return empty array if structure is unexpected
+    console.warn('Unexpected response structure for personality questions:', response.data);
+    return [];
   },
   createPersonalityQuestion: async (data: any) => {
     const response = await apiClient.post('/admin/cms/personality/questions', data);
