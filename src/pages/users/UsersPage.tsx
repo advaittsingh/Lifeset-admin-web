@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
-import { Users, Search, Filter, UserCheck, UserX, Mail, Loader2, AlertCircle } from 'lucide-react';
+import { Users, Search, Filter, UserCheck, UserX, Mail, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 import { usersApi, User } from '../../services/api/users';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -56,13 +56,19 @@ export default function UsersPage() {
     onError: () => showToast('Failed to activate user', 'error'),
   });
 
-  const deactivateMutation = useMutation({
-    mutationFn: (id: string) => usersApi.deactivate(id),
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => usersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      showToast('User deactivated successfully', 'success');
+      showToast('User deleted successfully', 'success');
+      setIsDialogOpen(false);
+      setSelectedUser(null);
     },
-    onError: () => showToast('Failed to deactivate user', 'error'),
+    onError: () => {
+      showToast('Failed to delete user', 'error');
+      setIsDialogOpen(false);
+      setSelectedUser(null);
+    },
   });
 
   const getTypeColor = (type: string) => {
@@ -250,20 +256,7 @@ export default function UsersPage() {
                           </td>
                           <td className="py-4 px-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {user.isActive ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedUser(user);
-                                    setIsDialogOpen(true);
-                                  }}
-                                  disabled={deactivateMutation.isPending}
-                                >
-                                  <UserX className="h-4 w-4 mr-1" />
-                                  Deactivate
-                                </Button>
-                              ) : (
+                              {!user.isActive && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -274,6 +267,18 @@ export default function UsersPage() {
                                   Activate
                                 </Button>
                               )}
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setIsDialogOpen(true);
+                                }}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -289,9 +294,9 @@ export default function UsersPage() {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Deactivate User</DialogTitle>
+              <DialogTitle>Delete User</DialogTitle>
               <DialogDescription>
-                Are you sure you want to deactivate {selectedUser && getUserName(selectedUser)}? This will prevent them from accessing the platform.
+                Are you sure you want to delete {selectedUser && getUserName(selectedUser)}? This action cannot be undone and will permanently remove the user from the system.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -302,19 +307,21 @@ export default function UsersPage() {
                 variant="destructive"
                 onClick={() => {
                   if (selectedUser) {
-                    deactivateMutation.mutate(selectedUser.id);
-                    setIsDialogOpen(false);
+                    deleteMutation.mutate(selectedUser.id);
                   }
                 }}
-                disabled={deactivateMutation.isPending}
+                disabled={deleteMutation.isPending}
               >
-                {deactivateMutation.isPending ? (
+                {deleteMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deactivating...
+                    Deleting...
                   </>
                 ) : (
-                  'Deactivate'
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete User
+                  </>
                 )}
               </Button>
             </DialogFooter>
