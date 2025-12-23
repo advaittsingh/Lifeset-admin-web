@@ -23,7 +23,12 @@ const getApiBaseUrl = () => {
     }
     
     // Check if we're on Vercel admin deployment (lifeset-admin-web.vercel.app -> lifeset-backend.vercel.app)
-    if (hostname.includes('lifeset-admin-web.vercel.app')) {
+    if (hostname.includes('lifeset-admin-web.vercel.app') || hostname.includes('lifeset-admin-web')) {
+      return 'https://lifeset-backend.vercel.app/api/v1';
+    }
+    
+    // Check if we're on any Vercel deployment (production)
+    if (hostname.includes('.vercel.app') && !hostname.includes('localhost')) {
       return 'https://lifeset-backend.vercel.app/api/v1';
     }
     
