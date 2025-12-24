@@ -129,7 +129,9 @@ export const adManagementApi = {
   // Get active users by hour for each day
   getActiveUsersByHour: async () => {
     const response = await apiClient.get('/admin/ad-campaigns/active-users');
-    return response.data;
+    // Handle wrapped response format: { data: { "Mon": { "0": 100, ... }, ... } }
+    // or direct format: { "Mon": { "0": 100, ... }, ... }
+    return response.data?.data || response.data;
   },
 };
 
