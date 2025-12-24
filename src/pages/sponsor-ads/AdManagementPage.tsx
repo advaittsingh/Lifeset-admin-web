@@ -48,8 +48,16 @@ type AdPerformanceState = {
   ads: AdPerformance[];
 };
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const HOURS = Array.from({ length: 24 }, (_, i) => i) as number[];
+
+// Ensure arrays are always defined
+if (!Array.isArray(DAYS) || DAYS.length === 0) {
+  console.error('DAYS array is not properly initialized');
+}
+if (!Array.isArray(HOURS) || HOURS.length === 0) {
+  console.error('HOURS array is not properly initialized');
+}
 
 export default function AdManagementPage() {
   const navigate = useNavigate();
@@ -263,8 +271,8 @@ export default function AdManagementPage() {
 
   // Fetch ad performance predictions
   const { data: performanceData } = useQuery<AdPerformanceState>({
-    queryKey: ['ad-performance', adPerformance.selectedSlot],
-    queryFn: () => adManagementApi.getPerformancePredictions(adPerformance.selectedSlot),
+    queryKey: ['ad-performance', adPerformance?.selectedSlot || '7PM - 7:59PM'],
+    queryFn: () => adManagementApi.getPerformancePredictions(adPerformance?.selectedSlot || '7PM - 7:59PM'),
     refetchInterval: 30000, // Refresh every 30 seconds
     retry: false, // Don't retry on error
   });
@@ -278,7 +286,11 @@ export default function AdManagementPage() {
 
   useEffect(() => {
     if (performanceData) {
-      setAdPerformance(performanceData);
+      // Ensure ads is always an array
+      setAdPerformance({
+        ...performanceData,
+        ads: Array.isArray(performanceData.ads) ? performanceData.ads : [],
+      });
     }
   }, [performanceData]);
 
@@ -571,7 +583,7 @@ export default function AdManagementPage() {
         <Card className="border-0 shadow-lg mb-6">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              {steps.map((step, index) => {
+              {(steps || []).map((step, index) => {
                 const Icon = step.icon;
                 const isActive = currentStep === step.id;
                 const isCompleted = completedSteps.has(step.id);
@@ -635,7 +647,7 @@ export default function AdManagementPage() {
           }
         }} className="w-full">
           <TabsList className="hidden">
-            {steps.map(step => (
+            {(steps || []).map(step => (
               <TabsTrigger key={step.key} value={step.key}>
                 {step.label}
               </TabsTrigger>
@@ -1182,20 +1194,20 @@ export default function AdManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
                     <p className="text-xs font-medium text-blue-700 mb-1">Daily Prediction</p>
-                    <p className="text-2xl font-bold text-blue-900">{adPerformance.dailyPrediction}</p>
+                    <p className="text-2xl font-bold text-blue-900">{adPerformance?.dailyPrediction ?? 0}</p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
                     <p className="text-xs font-medium text-purple-700 mb-1">Ad Opportunity (Daily)</p>
-                    <p className="text-2xl font-bold text-purple-900">{adPerformance.adOpportunityDaily}</p>
+                    <p className="text-2xl font-bold text-purple-900">{adPerformance?.adOpportunityDaily ?? 0}</p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg border border-emerald-200">
                     <p className="text-xs font-medium text-emerald-700 mb-1">Slot Ad Opportunity</p>
-                    <p className="text-2xl font-bold text-emerald-900">{adPerformance.slotAdOpportunity}</p>
+                    <p className="text-2xl font-bold text-emerald-900">{adPerformance?.slotAdOpportunity ?? 0}</p>
                   </div>
                 </div>
 
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-900">Selected Slot: {adPerformance.selectedSlot}</p>
+                  <p className="text-sm font-medium text-blue-900">Selected Slot: {adPerformance?.selectedSlot ?? 'N/A'}</p>
                 </div>
 
                 <div>
@@ -1212,7 +1224,7 @@ export default function AdManagementPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {adPerformance.ads.map((ad) => (
+                          {(adPerformance?.ads || []).map((ad) => (
                             <tr key={ad.id} className="border-b border-slate-100 hover:bg-slate-50">
                               <td className="px-4 py-3 font-medium text-slate-700 border-r border-slate-200">{ad.id}</td>
                               <td className="px-4 py-3 text-center border-r border-slate-200">{ad.money}</td>
