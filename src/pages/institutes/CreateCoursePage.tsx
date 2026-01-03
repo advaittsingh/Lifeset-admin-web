@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Select } from '../../components/ui/select';
-import { ArrowLeft, Save, Loader2, BookOpen, GraduationCap, Award, Layers, Check } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, BookOpen, GraduationCap, Award, Layers, Check, Search, Building2, Clock, Calendar, Users } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,13 +23,47 @@ export default function CreateCoursePage() {
     categoryId: '',
     awardedId: '',
     specialisationId: '',
+    affiliationId: '', // Optional - Institute ID
+    affiliationName: '', // Display name for selected institute
+    duration: '', // Mandatory - Number of years
+    section: '', // Optional - Section (ABCD or 1234)
+    courseMode: '', // Full Time, Part Time
+    level: '', // UG/PG/Diploma/Vocational
   });
+
+  // State for institute search
+  const [instituteSearchTerm, setInstituteSearchTerm] = useState('');
+  const [showInstituteDropdown, setShowInstituteDropdown] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.institute-search-container')) {
+        setShowInstituteDropdown(false);
+      }
+    };
+
+    if (showInstituteDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showInstituteDropdown]);
 
   // Fetch categories
   const { data: categoriesData } = useQuery({
     queryKey: ['course-categories'],
     queryFn: () => institutesApi.getCourseMasterData(),
   });
+
+  // Fetch institutes for affiliation search
+  const { data: institutesData } = useQuery({
+    queryKey: ['institutes-search', instituteSearchTerm],
+    queryFn: () => institutesApi.getInstitutes({ search: instituteSearchTerm || undefined }),
+    enabled: showInstituteDropdown && instituteSearchTerm.length > 0,
+  });
+
+  const institutes = Array.isArray(institutesData) ? institutesData : (institutesData?.data || []);
 
   // Fetch awarded based on selected category
   const { data: awardedData } = useQuery({
@@ -38,11 +72,11 @@ export default function CreateCoursePage() {
     enabled: !!formData.categoryId,
   });
 
-  // Fetch specialisations based on selected awarded
+  // Fetch specialisations based on selected course category (changed from awardedId)
   const { data: specialisationData } = useQuery({
-    queryKey: ['specialisations', formData.awardedId],
-    queryFn: () => institutesApi.getSpecialisationData(formData.awardedId || undefined),
-    enabled: !!formData.awardedId,
+    queryKey: ['specialisations', formData.categoryId],
+    queryFn: () => institutesApi.getSpecialisationData(formData.categoryId || undefined),
+    enabled: !!formData.categoryId,
   });
 
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
@@ -56,12 +90,36 @@ export default function CreateCoursePage() {
     }
   }, [formData.categoryId]);
 
-  // Reset specialisation when awarded changes
+  // Reset specialisation when category changes (changed from awardedId)
   useEffect(() => {
-    if (formData.awardedId) {
+    if (formData.categoryId) {
       setFormData(prev => ({ ...prev, specialisationId: '' }));
     }
-  }, [formData.awardedId]);
+  }, [formData.categoryId]);
+
+  // Auto-generate course name based on Award + Specialisation (Category is not included in name)
+  useEffect(() => {
+    if (formData.awardedId) {
+      const awarded = awardedList.find((a: any) => a.id === formData.awardedId);
+      
+      if (awarded) {
+        let generatedName = awarded.name; // Start with award name (e.g., "BA")
+        
+        // If specialisation exists, append " in " + specialisation name
+        if (formData.specialisationId) {
+          const specialisation = specialisations.find((s: any) => s.id === formData.specialisationId);
+          if (specialisation) {
+            generatedName = `${awarded.name} in ${specialisation.name}`;
+          }
+        }
+        
+        setFormData(prev => ({ ...prev, name: generatedName }));
+      }
+    } else {
+      // Clear name if award is not selected
+      setFormData(prev => ({ ...prev, name: '' }));
+    }
+  }, [formData.awardedId, formData.specialisationId, awardedList, specialisations]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => institutesApi.createCourse(id!, data),
@@ -109,11 +167,19 @@ export default function CreateCoursePage() {
   const handleSubmit = () => {
     // Validation
     if (!formData.name.trim()) {
-      showToast('Please enter course name', 'error');
+      showToast('Please select Category and Award to generate course name', 'error');
       return;
     }
     if (!formData.categoryId) {
       showToast('Please select a category', 'error');
+      return;
+    }
+    if (!formData.awardedId) {
+      showToast('Please select an award', 'error');
+      return;
+    }
+    if (!formData.duration) {
+      showToast('Please select duration', 'error');
       return;
     }
 
@@ -121,19 +187,33 @@ export default function CreateCoursePage() {
     const apiData: any = {
       name: formData.name.trim(),
       categoryId: formData.categoryId,
+      awardedId: formData.awardedId,
+      duration: parseInt(formData.duration),
     };
 
     // Add optional fields only if they have values
     if (formData.description?.trim()) {
       apiData.description = formData.description.trim();
     }
-    // Only include awardedId if it's selected (not empty string)
-    if (formData.awardedId && formData.awardedId.trim()) {
-      apiData.awardedId = formData.awardedId;
-    }
     // Only include specialisationId if it's selected (not empty string)
     if (formData.specialisationId && formData.specialisationId.trim()) {
       apiData.specialisationId = formData.specialisationId;
+    }
+    // Affiliation (optional)
+    if (formData.affiliationId && formData.affiliationId.trim()) {
+      apiData.affiliationId = formData.affiliationId;
+    }
+    // Section (optional)
+    if (formData.section && formData.section.trim()) {
+      apiData.section = formData.section.trim();
+    }
+    // Course Mode
+    if (formData.courseMode) {
+      apiData.courseMode = formData.courseMode;
+    }
+    // Level
+    if (formData.level) {
+      apiData.level = formData.level;
     }
 
     console.log('Sending course data:', JSON.stringify(apiData, null, 2));
@@ -193,18 +273,21 @@ export default function CreateCoursePage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* Course Name */}
+              {/* Course Name - Auto-generated */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
                   <BookOpen className="h-4 w-4" />
-                  Course Name *
+                  Course Name * (Auto-generated)
                 </label>
                 <Input
-                  placeholder="e.g., Bachelor of Computer Science"
+                  placeholder="Select Category and Award to generate course name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1"
+                  readOnly
+                  className="mt-1 bg-slate-50 cursor-not-allowed"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Course name is automatically generated from Category + Award + Specialisation
+                </p>
               </div>
 
               {/* Description */}
@@ -279,7 +362,7 @@ export default function CreateCoursePage() {
                   value={formData.specialisationId}
                   onChange={(e) => setFormData({ ...formData, specialisationId: e.target.value })}
                   className="mt-1"
-                  disabled={!formData.awardedId}
+                  disabled={!formData.categoryId}
                 >
                   <option value="">Select Specialisation (Optional)</option>
                   {specialisations.map((specialisation: any) => (
@@ -288,12 +371,145 @@ export default function CreateCoursePage() {
                     </option>
                   ))}
                 </Select>
-                {!formData.awardedId && (
-                  <p className="text-xs text-slate-500 mt-1">Please select an awarded first</p>
+                {!formData.categoryId && (
+                  <p className="text-xs text-slate-500 mt-1">Please select a course category first</p>
                 )}
-                {formData.awardedId && specialisations.length === 0 && (
-                  <p className="text-xs text-slate-500 mt-1">No specialisations available for this awarded. Create specialisations in Specialisations page first.</p>
+                {formData.categoryId && specialisations.length === 0 && (
+                  <p className="text-xs text-slate-500 mt-1">No specialisations available for this course category. Create specialisations in Specialisations page first.</p>
                 )}
+              </div>
+
+              {/* Affiliation (Optional) */}
+              <div className="institute-search-container">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Affiliation (Optional)
+                </label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search and select university/institute..."
+                    value={formData.affiliationName || instituteSearchTerm}
+                    onChange={(e) => {
+                      setInstituteSearchTerm(e.target.value);
+                      setShowInstituteDropdown(true);
+                      if (!e.target.value) {
+                        setFormData(prev => ({ ...prev, affiliationId: '', affiliationName: '' }));
+                      }
+                    }}
+                    onFocus={() => setShowInstituteDropdown(true)}
+                    className="pl-10"
+                  />
+                  {showInstituteDropdown && instituteSearchTerm && institutes.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {institutes.map((institute: any) => (
+                        <div
+                          key={institute.id}
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              affiliationId: institute.id,
+                              affiliationName: institute.name,
+                            }));
+                            setInstituteSearchTerm('');
+                            setShowInstituteDropdown(false);
+                          }}
+                          className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-slate-900">{institute.name}</div>
+                          {institute.city && institute.state && (
+                            <div className="text-xs text-slate-500">{institute.city}, {institute.state}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {formData.affiliationName && (
+                    <div className="mt-2 flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200">
+                      <Building2 className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-blue-900">{formData.affiliationName}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, affiliationId: '', affiliationName: '' }));
+                          setInstituteSearchTerm('');
+                        }}
+                        className="ml-auto h-6 px-2 text-xs"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Duration (Mandatory) */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Duration (Years) *
+                </label>
+                <Select
+                  value={formData.duration}
+                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                  className="mt-1"
+                >
+                  <option value="">Select Duration</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                    <option key={num} value={num}>
+                      {num} {num === 1 ? 'Year' : 'Years'}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Section (Optional) */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Section (Optional)
+                </label>
+                <Input
+                  placeholder="e.g., A, B, C, D or 1, 2, 3, 4"
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  className="mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">Some colleges use sections like ABCD or 1234</p>
+              </div>
+
+              {/* Course Mode */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Course Mode
+                </label>
+                <Select
+                  value={formData.courseMode}
+                  onChange={(e) => setFormData({ ...formData, courseMode: e.target.value })}
+                  className="mt-1"
+                >
+                  <option value="">Select Course Mode</option>
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                </Select>
+              </div>
+
+              {/* Level */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                  Level
+                </label>
+                <Select
+                  value={formData.level}
+                  onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                  className="mt-1"
+                >
+                  <option value="">Select Level</option>
+                  <option value="UG">UG (Undergraduate)</option>
+                  <option value="PG">PG (Postgraduate)</option>
+                  <option value="DIPLOMA">Diploma</option>
+                  <option value="VOCATIONAL">Vocational</option>
+                </Select>
               </div>
             </CardContent>
           </Card>

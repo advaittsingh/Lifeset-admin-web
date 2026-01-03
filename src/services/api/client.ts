@@ -2,19 +2,27 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 
 // Determine API base URL
-// Priority 1: Environment variable (VITE_API_URL)
-// Priority 2: Auto-detect subdomain (admin.domain.com -> api.domain.com)
+// Priority 1: Runtime detection (CloudFront, subdomains, etc.)
+// Priority 2: Environment variable (VITE_API_URL) - only if not on CloudFront
 // Priority 3: Localhost fallback
 // Priority 4: Default relative path
 const getApiBaseUrl = () => {
-  // Priority 1: Environment variable (explicit configuration)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Priority 2: Auto-detect subdomain (admin.domain.com -> api.domain.com)
+  // Priority 1: Runtime detection - CloudFront MUST override everything to avoid mixed content
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
+    
+    // Check if we're on CloudFront (use relative path - CloudFront proxies /api/* to backend)
+    // This MUST override environment variables to prevent mixed content errors
+    if (hostname.includes('cloudfront.net')) {
+      return '/api/v1';
+    }
+    
+    // Check if we're on S3 website (s3-website-*.amazonaws.com)
+    if (hostname.includes('s3-website-') || hostname.includes('.s3.amazonaws.com')) {
+      // Use HTTP for now (ALB doesn't have HTTPS listener configured yet)
+      // TODO: Configure HTTPS listener on ALB and change this to HTTPS
+      return 'http://lifeset-production-alb-1834668951.ap-south-1.elb.amazonaws.com/api/v1';
+    }
     
     // Check if we're on admin subdomain
     if (hostname.startsWith('admin.')) {
@@ -43,6 +51,12 @@ const getApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Log API base URL for debugging (only in browser)
+if (typeof window !== 'undefined') {
+  console.log('API Base URL configured:', API_BASE_URL);
+  console.log('Current hostname:', window.location.hostname);
+}
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

@@ -51,13 +51,7 @@ type AdPerformanceState = {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i) as number[];
 
-// Ensure arrays are always defined
-if (!Array.isArray(DAYS) || DAYS.length === 0) {
-  console.error('DAYS array is not properly initialized');
-}
-if (!Array.isArray(HOURS) || HOURS.length === 0) {
-  console.error('HOURS array is not properly initialized');
-}
+// DAYS and HOURS are compile-time constants, no runtime checks needed
 
 // Helper functions to ensure we always get arrays (safe for rendering)
 const getDaysArray = (): string[] => {
@@ -1129,6 +1123,8 @@ export default function AdManagementPage() {
                     </table>
                   </div>
                 </div>
+                  );
+                })()}
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-900">

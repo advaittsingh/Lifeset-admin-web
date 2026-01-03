@@ -12,6 +12,19 @@ import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../store/authStore';
 
+// Utility function to strip HTML tags
+const stripHtmlTags = (html: string): string => {
+  if (!html) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const plainText = doc.body.textContent || doc.body.innerText || '';
+    return plainText.trim();
+  } catch (error) {
+    return html.replace(/<[^>]*>/g, '').trim();
+  }
+};
+
 export default function JobsPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +53,7 @@ export default function JobsPage() {
           postId: post.id,
           jobTitle: post.title,
           jobDescription: post.description,
-            location: post.jobLocation || metadata.location || post.location,
+            location: post.jobLocation || metadata.jobLocation || metadata.location || post.location,
             salaryMin: post.salaryMin || metadata.salaryMin,
             salaryMax: post.salaryMax || metadata.salaryMax,
             experience: post.experience || metadata.experience,
@@ -274,10 +287,10 @@ export default function JobsPage() {
                               )}
                             </CardDescription>
                             <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                              {job.location && (
+                              {(job.location || (job.post as any)?.metadata?.jobLocation || (job.post as any)?.metadata?.location) && (
                                 <div className="flex items-center gap-2">
                                   <MapPin className="h-4 w-4" />
-                                  <span>{job.location}</span>
+                                  <span>{job.location || (job.post as any)?.metadata?.jobLocation || (job.post as any)?.metadata?.location}</span>
                                 </div>
                               )}
                               {(job.post as any)?.metadata?.jobType && (
@@ -315,7 +328,7 @@ export default function JobsPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-slate-600 mb-4 line-clamp-2">{job.jobDescription}</p>
+                        <p className="text-slate-600 mb-4 line-clamp-2">{stripHtmlTags(job.jobDescription || '')}</p>
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
@@ -369,7 +382,7 @@ export default function JobsPage() {
             <DialogHeader>
               <DialogTitle>{selectedJob?.jobTitle}</DialogTitle>
               <DialogDescription>
-                {(selectedJob?.post as any)?.metadata?.companyName || selectedJob?.company?.companyName || 'Company'} • {selectedJob?.location || 'Location not specified'}
+                {(selectedJob?.post as any)?.metadata?.companyName || selectedJob?.company?.companyName || 'Company'} • {selectedJob?.location || (selectedJob?.post as any)?.metadata?.jobLocation || (selectedJob?.post as any)?.metadata?.location || 'Location not specified'}
                 {(selectedJob?.post as any)?.metadata?.industry && (
                   <span> • {(selectedJob?.post as any)?.metadata?.industry}</span>
                 )}
@@ -389,6 +402,12 @@ export default function JobsPage() {
                     <div>
                       <h3 className="font-semibold text-slate-900 mb-1">Industry</h3>
                       <p className="text-slate-600">{(selectedJob.post as any).metadata.industry}</p>
+                    </div>
+                  )}
+                  {(selectedJob.location || (selectedJob.post as any)?.metadata?.jobLocation || (selectedJob.post as any)?.metadata?.location) && (
+                    <div>
+                      <h3 className="font-semibold text-slate-900 mb-1">Location</h3>
+                      <p className="text-slate-600">{selectedJob.location || (selectedJob.post as any)?.metadata?.jobLocation || (selectedJob.post as any)?.metadata?.location}</p>
                     </div>
                   )}
                   {(selectedJob.post as any)?.metadata?.selectRole && (
@@ -462,7 +481,7 @@ export default function JobsPage() {
                 {/* Description */}
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-2">Description</h3>
-                  <p className="text-slate-600 whitespace-pre-wrap">{selectedJob.jobDescription}</p>
+                  <p className="text-slate-600 whitespace-pre-wrap">{stripHtmlTags(selectedJob.jobDescription || '')}</p>
                 </div>
 
                 {/* Skills */}

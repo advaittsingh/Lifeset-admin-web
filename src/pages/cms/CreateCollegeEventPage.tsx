@@ -401,9 +401,9 @@ export default function CreateCollegeEventPage() {
                         <div className="h-6 bg-slate-200 rounded animate-pulse"></div>
                       )}
                       {formData.description ? (
-                        <p className="text-sm text-slate-600 line-clamp-3 whitespace-pre-wrap">
+                        <div className="text-sm text-slate-600 whitespace-pre-wrap max-h-96 overflow-y-auto">
                           {formData.description}
-                        </p>
+                        </div>
                       ) : (
                         <div className="space-y-2">
                           <div className="h-4 bg-slate-200 rounded animate-pulse"></div>

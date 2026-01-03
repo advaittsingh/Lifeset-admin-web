@@ -4,7 +4,7 @@ import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { ArrowLeft, Save, Loader2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, BookOpen, Layers } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutesApi } from '../../services/api/institutes';
@@ -18,18 +18,19 @@ export default function CreateSpecialisationPage() {
 
   const [formData, setFormData] = useState({
     name: '',
-    awardedId: '',
+    categoryId: '', // Changed from awardedId to categoryId
+    mainCategory: '', // New field for Main Category
     status: 'active',
   });
 
-  // Fetch awarded for dropdown
-  const { data: awardedData } = useQuery({
-    queryKey: ['awarded-for-specialisation-filter'],
-    queryFn: () => institutesApi.getAwardedData(),
+  // Fetch course categories for dropdown (replacing awarded)
+  const { data: categoriesData } = useQuery({
+    queryKey: ['course-categories'],
+    queryFn: () => institutesApi.getCourseMasterData(),
     staleTime: 5 * 60 * 1000, // 5 minutes - prevent auto-refresh
   });
 
-  const awardedList = Array.isArray(awardedData) ? awardedData : (awardedData?.data || []);
+  const categoriesList = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
   // Fetch existing item if editing
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
@@ -47,7 +48,8 @@ export default function CreateSpecialisationPage() {
     if (existingItem && isEditMode) {
       setFormData({
         name: existingItem.name || '',
-        awardedId: existingItem.awardedId || existingItem.awarded?.id || '',
+        categoryId: existingItem.categoryId || existingItem.courseCategory?.id || existingItem.awardedId || existingItem.awarded?.id || '', // Support both old and new field names
+        mainCategory: existingItem.mainCategory || '',
         status: existingItem.isActive !== false ? 'active' : 'inactive',
       });
     }
@@ -55,19 +57,20 @@ export default function CreateSpecialisationPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      if (!data.awardedId) {
-        throw new Error('Awarded is required');
+      if (!data.categoryId) {
+        throw new Error('Course Category is required');
       }
       return institutesApi.createSpecialisation({
         name: data.name,
-        awardedId: data.awardedId,
+        categoryId: data.categoryId, // Changed from awardedId
+        mainCategory: data.mainCategory || undefined, // New field
         description: '',
         isActive: data.status === 'active',
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specialisations-list'] });
-      queryClient.invalidateQueries({ queryKey: ['awarded-for-specialisation-filter'] });
+      queryClient.invalidateQueries({ queryKey: ['course-categories'] });
       showToast('Specialisation created successfully', 'success');
       navigate('/dashboard/specialisations');
     },
@@ -76,12 +79,13 @@ export default function CreateSpecialisationPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      if (!data.awardedId) {
-        throw new Error('Awarded is required');
+      if (!data.categoryId) {
+        throw new Error('Course Category is required');
       }
       return institutesApi.updateSpecialisation(id!, {
         name: data.name,
-        awardedId: data.awardedId,
+        categoryId: data.categoryId, // Changed from awardedId
+        mainCategory: data.mainCategory || undefined, // New field
         description: '',
         isActive: data.status === 'active',
       });
@@ -89,6 +93,7 @@ export default function CreateSpecialisationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['specialisations-list'] });
       queryClient.invalidateQueries({ queryKey: ['specialisation', id] });
+      queryClient.invalidateQueries({ queryKey: ['course-categories'] });
       showToast('Specialisation updated successfully', 'success');
       navigate('/dashboard/specialisations');
     },
@@ -100,8 +105,8 @@ export default function CreateSpecialisationPage() {
       showToast('Please enter a name', 'error');
       return;
     }
-    if (!formData.awardedId) {
-      showToast('Please select an awarded', 'error');
+    if (!formData.categoryId) {
+      showToast('Please select a course category', 'error');
       return;
     }
 
@@ -161,25 +166,26 @@ export default function CreateSpecialisationPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
-            {/* Awarded */}
+            {/* Course Category */}
             <div>
-              <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                Awarded *
+              <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Course Category *
               </label>
               <select
-                value={formData.awardedId}
-                onChange={(e) => setFormData({ ...formData, awardedId: e.target.value })}
+                value={formData.categoryId}
+                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
               >
-                <option value="">Select Awarded *</option>
-                {awardedList.map((awarded: any) => (
-                  <option key={awarded.id} value={awarded.id}>
-                    {awarded.name} ({awarded.courseCategory?.name || 'N/A'})
+                <option value="">Select Course Category *</option>
+                {categoriesList.map((category: any) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-slate-500 mt-1">
-                Select the awarded this specialisation belongs to (e.g., BTech, MTech)
+                Select the course category this specialisation belongs to (e.g., Engineering, Arts, Science)
               </p>
             </div>
 
@@ -196,6 +202,22 @@ export default function CreateSpecialisationPage() {
               />
               <p className="text-xs text-slate-500 mt-1">
                 Enter the name of the specialisation (e.g., CSE, Electronics)
+              </p>
+            </div>
+
+            {/* Main Category */}
+            <div>
+              <label className="text-sm font-semibold text-slate-700 mb-2 block">
+                Main Category
+              </label>
+              <Input
+                placeholder="Enter main category (e.g., Technology, Business, Arts)"
+                value={formData.mainCategory}
+                onChange={(e) => setFormData({ ...formData, mainCategory: e.target.value })}
+                className="mt-1"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Main category is used to club users who belong to the same main category
               </p>
             </div>
 

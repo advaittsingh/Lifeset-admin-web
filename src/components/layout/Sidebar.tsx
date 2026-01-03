@@ -17,19 +17,17 @@ import {
   Users as UsersIcon,
   Building2,
   BookOpen,
-  TrendingUp,
   Calendar,
   Search,
   Server,
   Activity,
-  Globe,
-  Zap,
   GraduationCap,
       Award,
       FolderOpen,
       Megaphone,
-      AlertCircle
-    } from 'lucide-react';
+  Image as ImageIcon,
+  Calendar as CalendarIcon,
+} from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../lib/utils';
 
@@ -40,6 +38,7 @@ const coreMenuItems = [
   { icon: FileText, label: 'Posts', path: '/posts' },
   { icon: Megaphone, label: 'Sponsor Ads', path: '/sponsor-ads' },
   { icon: Bell, label: 'Notifications', path: '/notifications' },
+  { icon: ImageIcon, label: 'App Icon', path: '/settings/app-icon' },
 ];
 
 // Jobs & Opportunities - All job-related content
@@ -50,19 +49,13 @@ const jobsMenuItems = [
 
 const monitoringMenuItems = [
       { icon: Server, label: 'Server', path: '/monitoring/server' },
-      { icon: Activity, label: 'App', path: '/monitoring/app' },
-      { icon: Globe, label: 'Web', path: '/monitoring/web' },
-      { icon: TrendingUp, label: 'User Behavior', path: '/monitoring/user-behavior' },
-      { icon: Zap, label: 'Engagement', path: '/monitoring/engagement' },
       { icon: Activity, label: 'System Health', path: '/monitoring/health' },
-      { icon: AlertCircle, label: 'Error Logs', path: '/monitoring/errors' },
     ];
 
 // Content Management - News, articles, and educational content
 const contentMenuItems = [
   { icon: Newspaper, label: 'Current Affairs', path: '/cms/current-affairs' },
   { icon: BookOpen, label: 'General Knowledge', path: '/cms/general-knowledge' },
-  { icon: Megaphone, label: 'Daily Digest', path: '/cms/daily-digest' },
 ];
 
 // Learning & Assessment - Quizzes and tests
@@ -91,7 +84,7 @@ const recruiterMenuItems = [
   { icon: BarChart3, label: 'Analytics', path: '/recruiter/analytics' },
 ];
 
-const settingsMenuItem = [
+const settingsMenuItems = [
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
@@ -440,7 +433,7 @@ export function Sidebar() {
         )}
 
         {/* Settings */}
-        {settingsMenuItem.map((item) => {
+        {settingsMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           

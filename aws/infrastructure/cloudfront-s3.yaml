@@ -1,0 +1,225 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'LifeSet Admin Panel - S3 and CloudFront Distribution'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: lifeset
+    Description: Project name for resource naming
+  
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, staging, development]
+    Description: Environment name
+  
+  DomainName:
+    Type: String
+    Default: ''
+    Description: Custom domain name (optional, e.g., admin.lifeset.com)
+  
+  CertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM Certificate ARN for custom domain (must be in us-east-1)
+
+Resources:
+  # S3 Bucket for Admin Panel
+  AdminPanelBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Environment}-admin-panel'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-admin-bucket'
+
+  # Bucket Policy for CloudFront OAC
+  # Note: OAC requires a bucket policy that allows CloudFront to access the bucket
+  AdminPanelBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: CloudFrontDistribution
+    Properties:
+      Bucket: !Ref AdminPanelBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${AdminPanelBucket}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # Origin Access Control
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-${Environment}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Origin Request Policy for API requests (forwards Authorization header)
+  APIOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${ProjectName}-${Environment}-api-origin-request-policy'
+        Comment: 'Forward Authorization and other headers for API requests'
+        CookiesConfig:
+          CookieBehavior: none
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers:
+            - Authorization
+            - Content-Type
+            - Origin
+            - Referer
+            - User-Agent
+            - X-Requested-With
+            - LYFSET
+            - x-api-key
+            - api-key
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${ProjectName} ${Environment} Admin Panel'
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt AdminPanelBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+          - Id: BackendAPIOrigin
+            DomainName: lifeset-production-alb-1834668951.ap-south-1.elb.amazonaws.com
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          # OriginRequestPolicyId removed - not needed with OAC
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # Managed-SecurityHeadersPolicy
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: BackendAPIOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - DELETE
+              - GET
+              - HEAD
+              - OPTIONS
+              - PATCH
+              - POST
+              - PUT
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled (for API)
+            OriginRequestPolicyId: !Ref APIOriginRequestPolicy
+            ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # Managed-SecurityHeadersPolicy
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        Aliases: !If
+          - HasCustomDomain
+          - !Ref DomainName
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        # Logging disabled to avoid ACL requirement
+        # Logging:
+        #   Bucket: !GetAtt LoggingBucket.DomainName
+        #   IncludeCookies: false
+        #   Prefix: cloudfront-logs/
+
+  # S3 Bucket for CloudFront Logs
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Environment}-admin-logs'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-admin-logs'
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Outputs:
+  S3BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref AdminPanelBucket
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-AdminBucketName'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-CloudFrontDistributionId'
+
+  CloudFrontDomainName:
+    Description: CloudFront Distribution Domain Name
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-CloudFrontDomainName'
+
+  CloudFrontURL:
+    Description: CloudFront Distribution URL
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-CloudFrontURL'
+

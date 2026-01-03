@@ -166,6 +166,22 @@ export const cmsApi = {
     const response = await apiClient.get('/admin/cms/govt-vacancies', { params });
     return response.data.data || response.data;
   },
+  getGovtVacancyById: async (id: string) => {
+    const response = await apiClient.get(`/admin/cms/govt-vacancies/${id}`);
+    return response.data.data || response.data;
+  },
+  createGovtVacancy: async (data: any) => {
+    const response = await apiClient.post('/admin/cms/govt-vacancies', data);
+    return response.data.data || response.data;
+  },
+  updateGovtVacancy: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/cms/govt-vacancies/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteGovtVacancy: async (id: string) => {
+    const response = await apiClient.delete(`/admin/cms/govt-vacancies/${id}`);
+    return response.data;
+  },
 
   // College Feeds
   getCollegeFeeds: async (params?: any) => {

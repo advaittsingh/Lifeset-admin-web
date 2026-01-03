@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Loader2, Briefcase } from 'lucide-react';
+import { Loader2, Briefcase, Plus } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 
 export default function GovtVacanciesPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading } = useQuery({
@@ -24,6 +27,13 @@ export default function GovtVacanciesPage() {
             <h1 className="text-3xl font-bold text-slate-900">Government Vacancies</h1>
             <p className="text-slate-600 mt-1">View and manage government job vacancies</p>
           </div>
+          <Button
+            className="bg-gradient-to-r from-blue-600 to-indigo-600"
+            onClick={() => navigate('/cms/govt-vacancies/create')}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Vacancy
+          </Button>
         </div>
 
         <Card>

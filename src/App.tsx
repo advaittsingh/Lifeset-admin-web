@@ -18,8 +18,11 @@ import PostsPage from './pages/posts/PostsPage';
 import JobsPage from './pages/jobs/JobsPage';
 import CreateJobPage from './pages/jobs/CreateJobPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import CreateNotificationJobPage from './pages/notifications/CreateNotificationJobPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import AppIconPage from './pages/settings/AppIconPage';
+import ReferralManagementPage from './pages/referral/ReferralManagementPage';
 
 // CMS Pages
 import CurrentAffairsPage from './pages/cms/CurrentAffairsPage';
@@ -36,6 +39,7 @@ import KnowYourselfPage from './pages/cms/KnowYourselfPage';
 import CreateKnowYourselfPage from './pages/cms/CreateKnowYourselfPage';
 import StudentsCommunityPage from './pages/cms/StudentsCommunityPage';
 import GovtVacanciesPage from './pages/cms/GovtVacanciesPage';
+import CreateGovtVacancyPage from './pages/cms/CreateGovtVacancyPage';
 
 // Institute Pages
 import CourseMasterPage from './pages/institutes/CourseMasterPage';
@@ -280,6 +284,22 @@ export default function App() {
           }
         />
         <Route
+          path="/notifications/jobs/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateNotificationJobPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications/jobs/:id/edit"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateNotificationJobPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/analytics"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
@@ -292,6 +312,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/app-icon"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <AppIconPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/referral"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <ReferralManagementPage />
             </ProtectedRoute>
           }
         />
@@ -350,6 +386,22 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <GovtVacanciesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/govt-vacancies/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateGovtVacancyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cms/govt-vacancies/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateGovtVacancyPage />
             </ProtectedRoute>
           }
         />

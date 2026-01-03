@@ -6,12 +6,13 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin, Tag, Send } from 'lucide-react';
+import { ArrowLeft, Save, Eye, BookOpen, Loader2, Image as ImageIcon, HelpCircle, CheckCircle2, XCircle, Plus, X, Calendar, MapPin, Tag, Send, Cloud, CloudOff } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi, Chapter } from '../../services/api/cms';
 import { postsApi } from '../../services/api/posts';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { useAutoSave } from '../../hooks/useAutoSave';
 
 export default function CreateGeneralKnowledgePage() {
   const navigate = useNavigate();
@@ -345,7 +346,51 @@ export default function CreateGeneralKnowledgePage() {
   };
 
   const descriptionWordCount = getWordCount(formData.description);
-  const isDescriptionValid = descriptionWordCount > 0 && descriptionWordCount <= 60;
+  // No word limit - description can be any length
+  const isDescriptionValid = descriptionWordCount > 0;
+
+  // Auto-save functionality (only in create mode, not edit mode)
+  const autoSaveKey = `cms-draft-general-knowledge-${id || 'new'}`;
+  const { isSaving, lastSaved, hasDraft, restoreDraft, clearDraft } = useAutoSave({
+    key: autoSaveKey,
+    data: formData,
+    enabled: !isEditMode, // Only auto-save in create mode
+    debounceMs: 2000, // Save 2 seconds after last change
+    onRestore: (restoredData) => {
+      // Only restore if we're in create mode and form is empty
+      if (!isEditMode && !formData.title && !formData.description) {
+        // Restore image preview if it was a data URL
+        if (restoredData.imagePreview && restoredData.imagePreview.startsWith('data:')) {
+          setFormData(restoredData);
+        } else {
+          // Clear imagePreview if it's not a data URL (can't restore File objects)
+          setFormData({ ...restoredData, imageFile: null, imagePreview: null });
+        }
+        showToast('Draft restored from auto-save', 'info');
+      }
+    },
+  });
+
+  // Restore draft on mount if in create mode
+  useEffect(() => {
+    if (!isEditMode && hasDraft) {
+      const restored = restoreDraft();
+      if (restored && !formData.title && !formData.description) {
+        // Show restore prompt
+        if (window.confirm('A draft was found. Would you like to restore it?')) {
+          if (restored.imagePreview && restored.imagePreview.startsWith('data:')) {
+            setFormData(restored);
+          } else {
+            setFormData({ ...restored, imageFile: null, imagePreview: null });
+          }
+          showToast('Draft restored', 'success');
+        } else {
+          clearDraft();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Category creation removed - use Wall Categories in dashboard instead
 
@@ -385,12 +430,6 @@ export default function CreateGeneralKnowledgePage() {
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      // Re-validate description word count before sending (matches backend validation)
-      const wordCount = getWordCount(data.description);
-      if (wordCount > 60) {
-        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
-      }
-      
       const imageUrl = data.imagePreview || data.imageUrl;
       
       // Helper to clean empty strings and undefined values
@@ -448,6 +487,7 @@ export default function CreateGeneralKnowledgePage() {
       if (articleId) {
         setFormData(prev => ({ ...prev, articleId }));
       }
+      clearDraft(); // Clear draft when successfully published
       showToast('General knowledge article created successfully', 'success');
       // Navigate to all articles page after successful creation
       navigate('/cms/general-knowledge');
@@ -552,12 +592,6 @@ export default function CreateGeneralKnowledgePage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) => {
-      // Re-validate description word count before sending (matches backend validation)
-      const wordCount = getWordCount(data.description);
-      if (wordCount > 60) {
-        throw new Error(`Description must be 60 words or less (HTML tags are not counted). Current: ${wordCount} words`);
-      }
-      
       const imageUrl = data.imagePreview || data.imageUrl;
       
       // Helper to clean empty strings and undefined values
@@ -680,10 +714,6 @@ export default function CreateGeneralKnowledgePage() {
     }
     if (!formData.description.trim()) {
       showToast('Please enter a description', 'error');
-      return;
-    }
-    if (!isDescriptionValid) {
-      showToast('Description must be 60 words or less', 'error');
       return;
     }
 
@@ -925,6 +955,65 @@ export default function CreateGeneralKnowledgePage() {
       `}</style>
       <AdminLayout>
       <div className="space-y-6">
+        {/* Auto-save indicator */}
+        {!isEditMode && (
+          <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving draft...</span>
+                </>
+              ) : hasDraft && lastSaved ? (
+                <>
+                  <Cloud className="h-4 w-4 text-green-600" />
+                  <span>Draft saved {lastSaved.toLocaleTimeString()}</span>
+                </>
+              ) : (
+                <>
+                  <CloudOff className="h-4 w-4 text-slate-400" />
+                  <span>Auto-save enabled</span>
+                </>
+              )}
+            </div>
+            {hasDraft && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const restored = restoreDraft();
+                    if (restored) {
+                      if (restored.imagePreview && restored.imagePreview.startsWith('data:')) {
+                        setFormData(restored);
+                      } else {
+                        setFormData({ ...restored, imageFile: null, imagePreview: null });
+                      }
+                      showToast('Draft restored successfully', 'success');
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  <Cloud className="h-3 w-3 mr-1" />
+                  Restore Draft
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+                      clearDraft();
+                      showToast('Draft deleted', 'info');
+                    }
+                  }}
+                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  Delete Draft
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1366,57 +1455,21 @@ export default function CreateGeneralKnowledgePage() {
                 {/* Description */}
                 <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                    Description * (Max 60 words)
+                    Description *
                   </label>
                   <RichTextEditor
                     key={`description-${dataLoadedKey}`}
                     value={formData.description}
                     onChange={(value) => {
-                      // Limit to 60 words
-                      const wordCount = getWordCount(value);
-                      if (wordCount > 60) {
-                        // Truncate to 60 words
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(value, 'text/html');
-                        const plainText = doc.body.textContent || doc.body.innerText || '';
-                        const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
-                        
-                        if (words.length > 60) {
-                          const truncatedWords = words.slice(0, 60);
-                          const truncatedText = truncatedWords.join(' ');
-                          
-                          // If original had HTML, try to preserve structure by replacing text content
-                          // Otherwise, just use the truncated plain text
-                          let truncatedValue = value;
-                          if (value.includes('<')) {
-                            // Find the text content in the HTML and replace it
-                            const body = doc.body;
-                            if (body) {
-                              body.textContent = truncatedText;
-                              truncatedValue = body.innerHTML || truncatedText;
-                            } else {
-                              truncatedValue = truncatedText;
-                            }
-                          } else {
-                            truncatedValue = truncatedText;
-                          }
-                          
-                          setFormData({ ...formData, description: truncatedValue });
-                          showToast('Description limited to 60 words', 'info');
-                        } else {
-                          setFormData({ ...formData, description: value });
-                        }
-                      } else {
-                        setFormData({ ...formData, description: value });
-                      }
+                      setFormData({ ...formData, description: value });
                     }}
-                    placeholder="Write a brief description (max 60 words) with full formatting options..."
+                    placeholder="Write a brief description with full formatting options..."
                     minHeight="60px"
                     className="mt-1 description-editor"
                   />
                   <div className="mt-2 flex items-center justify-between">
-                    <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : descriptionWordCount > 60 ? 'text-red-600' : 'text-slate-600'}`}>
-                      {descriptionWordCount} / 60 words {descriptionWordCount > 60 && `(Exceeds limit)`}
+                    <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : 'text-slate-600'}`}>
+                      {descriptionWordCount} words (no limit)
                     </p>
                     {isDescriptionValid && (
                       <span className="text-xs text-emerald-600 font-semibold">✓ Valid</span>
@@ -1436,7 +1489,7 @@ export default function CreateGeneralKnowledgePage() {
                     className="mt-1"
                   />
                   <p className="text-xs text-slate-500 mt-2">
-                    This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary (max 60 words).
+                    This is the complete article content. Use the toolbar above to format your text (bold, italic, underline, alignment, links, etc.). The description above is a brief summary.
                   </p>
                 </div>
               </div>

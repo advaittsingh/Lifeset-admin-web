@@ -5,11 +5,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Eye, Briefcase, MapPin, DollarSign, Calendar, Users, Loader2, Building2, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Briefcase, MapPin, DollarSign, Calendar, Users, Loader2, Building2, Clock, CheckCircle2, Cloud, CloudOff } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { jobsApi } from '../../services/api/jobs';
 import { institutesApi } from '../../services/api/institutes';
+import { postsApi } from '../../services/api/posts';
+import { useAutoSave } from '../../hooks/useAutoSave';
+
+// Utility function to strip HTML tags
+const stripHtmlTags = (html: string): string => {
+  if (!html) return '';
+  try {
+    // Use DOMParser to safely parse HTML without executing scripts
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const plainText = doc.body.textContent || doc.body.innerText || '';
+    return plainText.trim();
+  } catch (error) {
+    // Fallback: strip HTML tags using regex if DOMParser fails
+    return html.replace(/<[^>]*>/g, '').trim();
+  }
+};
 
 // Candidate Qualities options
 const candidateQualities = [
@@ -35,7 +52,6 @@ export default function CreateJobPage() {
     jobTitle: '',
     companyName: '',
     industry: '',
-    selectRole: '',
     location: '',
     clientToManage: '',
     workingDays: '',
@@ -92,41 +108,86 @@ export default function CreateJobPage() {
     enabled: isEditMode && !!id,
   });
 
+  // Auto-save functionality (only in create mode, not edit mode)
+  const autoSaveKey = `cms-draft-job-${id || 'new'}`;
+  const { isSaving, lastSaved, hasDraft, restoreDraft, clearDraft } = useAutoSave({
+    key: autoSaveKey,
+    data: formData,
+    enabled: !isEditMode, // Only auto-save in create mode
+    debounceMs: 2000,
+    onRestore: (restoredData) => {
+      setFormData(restoredData);
+    },
+  });
+
   // Update form when existing job loads
   useEffect(() => {
     if (existingJob && isEditMode) {
       const job = existingJob.data || existingJob;
       const metadata = job.metadata || job.post?.metadata || {};
+      const post = job.post || {};
+      
+      // Get description from multiple possible sources
+      const description = job.jobDescription || job.description || post.description || '';
+      
+      // Get location from multiple possible sources (backend stores as jobLocation in metadata)
+      const location = job.location || metadata.jobLocation || metadata.location || '';
+      
+      // Get skills - handle both array and string formats
+      let skillsValue = '';
+      if (Array.isArray(job.skills)) {
+        skillsValue = job.skills.join(', ');
+      } else if (Array.isArray(metadata.skills)) {
+        skillsValue = metadata.skills.join(', ');
+      } else if (typeof metadata.skills === 'string') {
+        skillsValue = metadata.skills;
+      }
+      
       setFormData({
-        jobTitle: job.jobTitle || job.title || '',
+        jobTitle: job.jobTitle || job.title || post.title || '',
         companyName: metadata.companyName || '',
         industry: metadata.industry || '',
-        selectRole: metadata.selectRole || '',
-        location: job.location || metadata.location || '',
+        location: location,
         clientToManage: metadata.clientToManage || '',
         workingDays: metadata.workingDays || '',
         yearlySalary: metadata.yearlySalary || (job.salaryMin && job.salaryMax ? `${job.salaryMin}-${job.salaryMax}` : ''),
-        skills: Array.isArray(job.skills) ? job.skills.join(', ') : (metadata.skills || ''),
-        function: metadata.function || '',
+        skills: skillsValue,
+        function: metadata.jobFunction || metadata.function || '',
         experience: job.experience || metadata.experience || '',
         jobType: metadata.jobType || '',
         capacity: metadata.capacity || '',
         workTime: metadata.workTime || '',
         perksAndBenefits: metadata.perksAndBenefits || '',
-        jobDescription: job.jobDescription || job.description || '',
-        candidateQualities: metadata.candidateQualities || [],
-        isPublished: job.isPublished || false,
+        jobDescription: description,
+        candidateQualities: Array.isArray(metadata.candidateQualities) ? metadata.candidateQualities : [],
+        isPublished: job.isPublished || post.isPublished || false,
         isPublic: metadata.isPublic !== false,
         isPrivate: metadata.isPrivate || false,
         privateFilters: {
-          selectCollege: metadata.privateFilters?.selectCollege || '',
-          selectCourse: metadata.privateFilters?.selectCourse || '',
-          selectCourseCategory: metadata.privateFilters?.selectCourseCategory || '',
-          selectYear: metadata.privateFilters?.selectYear || '',
+          selectCollege: metadata.privateFiltersCollege || metadata.privateFilters?.selectCollege || '',
+          selectCourse: metadata.privateFiltersCourse || metadata.privateFilters?.selectCourse || '',
+          selectCourseCategory: metadata.privateFiltersCourseCategory || metadata.privateFilters?.selectCourseCategory || '',
+          selectYear: metadata.privateFiltersYear || metadata.privateFilters?.selectYear || '',
         },
       });
     }
   }, [existingJob, isEditMode]);
+
+  // Restore draft on mount if in create mode
+  useEffect(() => {
+    if (!isEditMode && hasDraft) {
+      const restored = restoreDraft();
+      if (restored && !formData.jobTitle && !formData.jobDescription) {
+        // Show restore prompt
+        if (window.confirm('A draft was found. Would you like to restore it?')) {
+          setFormData(restored);
+          showToast('Draft restored', 'success');
+        } else {
+          clearDraft();
+        }
+      }
+    }
+  }, []); // Only run on mount
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => {
@@ -158,7 +219,6 @@ export default function CreateJobPage() {
         applicationDeadline: undefined,
         companyName: data.companyName || undefined,
         industry: data.industry || undefined,
-        selectRole: data.selectRole || undefined,
         clientToManage: data.clientToManage || undefined,
         workingDays: data.workingDays || undefined,
         yearlySalary: data.yearlySalary || undefined,
@@ -174,6 +234,8 @@ export default function CreateJobPage() {
       });
     },
     onSuccess: () => {
+      // Clear draft on successful save
+      clearDraft();
       // Invalidate both jobs and posts queries since jobs are stored as posts
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -194,7 +256,7 @@ export default function CreateJobPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: typeof formData) => {
+    mutationFn: async (data: typeof formData) => {
       // Parse yearly salary if it's a range
       let salaryMin: number | undefined;
       let salaryMax: number | undefined;
@@ -212,37 +274,68 @@ export default function CreateJobPage() {
         }
       }
 
-      // For update, we'll need to update the post metadata as well
-      // This assumes the backend can handle metadata updates
-      return jobsApi.update(id!, {
-        jobTitle: data.jobTitle,
-        jobDescription: data.jobDescription,
-        location: data.location || undefined,
-        salaryMin,
-        salaryMax,
-        experience: data.experience || undefined,
-        skills: data.skills.split(',').map(s => s.trim()).filter(Boolean),
-        // Include metadata fields - backend should handle these
-        metadata: {
-          companyName: data.companyName,
-          industry: data.industry,
-          selectRole: data.selectRole,
-          clientToManage: data.clientToManage,
-          workingDays: data.workingDays,
-          yearlySalary: data.yearlySalary,
-          function: data.function,
-          jobType: data.jobType,
-          capacity: data.capacity,
-          workTime: data.workTime,
-          perksAndBenefits: data.perksAndBenefits,
-          candidateQualities: data.candidateQualities,
-          isPublic: data.isPublic,
-          isPrivate: data.isPrivate,
-          privateFilters: data.isPrivate ? data.privateFilters : undefined,
-        },
-      } as any);
+      // Jobs are stored as posts, so we need to update the post
+      // Get the post ID - it could be the job ID if it's a post ID, or we need to get it from the job
+      const job = existingJob?.data || existingJob;
+      const postId = job?.postId || job?.post?.id || id!;
+
+      // Build metadata object with all job fields
+      // First, get existing metadata to merge with
+      const existingMetadata = (job?.post?.metadata || job?.metadata || {}) as any;
+      
+      // Helper to only include non-empty values
+      const addIfNotEmpty = (obj: any, key: string, value: any) => {
+        if (value !== undefined && value !== null && value !== '') {
+          obj[key] = value;
+        }
+      };
+
+      const metadata: any = {
+        ...existingMetadata, // Preserve existing metadata fields
+      };
+      
+      // Update metadata fields (only if they have values)
+      addIfNotEmpty(metadata, 'companyName', data.companyName);
+      addIfNotEmpty(metadata, 'industry', data.industry);
+      if (data.location) {
+        metadata.jobLocation = data.location; // Use location field, store as jobLocation in metadata
+      }
+      addIfNotEmpty(metadata, 'clientToManage', data.clientToManage);
+      addIfNotEmpty(metadata, 'workingDays', data.workingDays);
+      addIfNotEmpty(metadata, 'yearlySalary', data.yearlySalary);
+      if (salaryMin !== undefined) metadata.salaryMin = salaryMin;
+      if (salaryMax !== undefined) metadata.salaryMax = salaryMax;
+      if (data.skills && data.skills.trim()) {
+        metadata.skills = data.skills.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      addIfNotEmpty(metadata, 'jobFunction', data.function);
+      addIfNotEmpty(metadata, 'experience', data.experience);
+      addIfNotEmpty(metadata, 'jobType', data.jobType);
+      addIfNotEmpty(metadata, 'capacity', data.capacity);
+      addIfNotEmpty(metadata, 'workTime', data.workTime);
+      addIfNotEmpty(metadata, 'perksAndBenefits', data.perksAndBenefits);
+      if (data.candidateQualities && data.candidateQualities.length > 0) {
+        metadata.candidateQualities = data.candidateQualities;
+      }
+      metadata.isPublic = data.isPublic !== false;
+      metadata.isPrivate = data.isPrivate || false;
+      if (data.isPrivate && data.privateFilters) {
+        if (data.privateFilters.selectCollege) metadata.privateFiltersCollege = data.privateFilters.selectCollege;
+        if (data.privateFilters.selectCourse) metadata.privateFiltersCourse = data.privateFilters.selectCourse;
+        if (data.privateFilters.selectCourseCategory) metadata.privateFiltersCourseCategory = data.privateFilters.selectCourseCategory;
+        if (data.privateFilters.selectYear) metadata.privateFiltersYear = data.privateFilters.selectYear;
+      }
+
+      // Update the post with title, description, and metadata
+      return postsApi.update(postId, {
+        title: data.jobTitle,
+        description: data.jobDescription,
+        metadata,
+      });
     },
     onSuccess: () => {
+      // Clear draft on successful save
+      clearDraft();
       // Invalidate both jobs and posts queries since jobs are stored as posts
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -252,7 +345,15 @@ export default function CreateJobPage() {
       showToast('Job updated successfully', 'success');
       navigate('/jobs');
     },
-    onError: () => showToast('Failed to update job', 'error'),
+    onError: (error: any) => {
+      console.error('Update job error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error?.message ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          'Failed to update job. Please check the console for details.';
+      showToast(errorMessage, 'error');
+    },
   });
 
   const handleSubmit = () => {
@@ -333,6 +434,62 @@ export default function CreateJobPage() {
           </Button>
         </div>
 
+        {/* Auto-save indicator */}
+        {!isEditMode && (
+          <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving draft...</span>
+                </>
+              ) : hasDraft && lastSaved ? (
+                <>
+                  <Cloud className="h-4 w-4 text-green-600" />
+                  <span>Draft saved {lastSaved.toLocaleTimeString()}</span>
+                </>
+              ) : (
+                <>
+                  <CloudOff className="h-4 w-4 text-slate-400" />
+                  <span>Auto-save enabled</span>
+                </>
+              )}
+            </div>
+            {hasDraft && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const restored = restoreDraft();
+                    if (restored) {
+                      setFormData(restored);
+                      showToast('Draft restored successfully', 'success');
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  <Cloud className="h-3 w-3 mr-1" />
+                  Restore Draft
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+                      clearDraft();
+                      showToast('Draft deleted', 'info');
+                    }
+                  }}
+                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  Delete Draft
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Main Content - Side by Side */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Left Side - Form */}
@@ -379,15 +536,6 @@ export default function CreateJobPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Select Role</label>
-                  <Input
-                    placeholder="e.g., Full-time, Part-time, Intern"
-                    value={formData.selectRole}
-                    onChange={(e) => setFormData({ ...formData, selectRole: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
                     Location
@@ -421,8 +569,7 @@ export default function CreateJobPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">
                     Yearly Salary
                   </label>
                   <Input
@@ -718,9 +865,9 @@ export default function CreateJobPage() {
                       {formData.jobDescription && (
                         <div>
                           <p className="text-sm font-semibold text-slate-700 mb-2">Description</p>
-                          <p className="text-sm text-slate-600 whitespace-pre-wrap line-clamp-6">
-                            {formData.jobDescription}
-                          </p>
+                          <div className="text-sm text-slate-600 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                            {stripHtmlTags(formData.jobDescription)}
+                          </div>
                         </div>
                       )}
 

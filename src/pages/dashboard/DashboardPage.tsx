@@ -1,14 +1,20 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Users, FileText, Briefcase, TrendingUp, ArrowUp, ArrowDown, Activity, Loader2, AlertCircle, Smartphone, GraduationCap, Award, BookOpen, Building2, UserPlus, MessageSquare, Upload, ArrowRight, Clock, Zap, Target, BarChart3 } from 'lucide-react';
+import { Input } from '../../components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Users, FileText, Briefcase, TrendingUp, ArrowUp, ArrowDown, Activity, Loader2, AlertCircle, Smartphone, GraduationCap, Award, BookOpen, Building2, UserPlus, MessageSquare, Upload, ArrowRight, Clock, Zap, Target, BarChart3, Save, X, Plus, GripVertical, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { analyticsApi } from '../../services/api/analytics';
 import { usersApi } from '../../services/api/users';
 import { postsApi } from '../../services/api/posts';
 import { jobsApi } from '../../services/api/jobs';
+import { referralApi } from '../../services/api/referral';
+import { appConfigApi } from '../../services/api/app-config';
+import { useToast } from '../../contexts/ToastContext';
+import { apiClient } from '../../services/api/client';
 import { useNavigate } from 'react-router-dom';
 
 // Enhanced StatBox Component - matches admin panel design
@@ -814,7 +820,7 @@ export default function DashboardPage() {
               <ActionBox
                 label="Manage Panel"
                 icon={BarChart3}
-                onClick={() => navigate('/analytics')}
+                onClick={() => navigate('/referral')}
                 variant="secondary"
               />
               <StatBox
@@ -869,6 +875,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
       </div>
     </AdminLayout>
   );

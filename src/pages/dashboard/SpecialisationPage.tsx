@@ -14,24 +14,24 @@ export default function SpecialisationPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAwardedId, setSelectedAwardedId] = useState<string>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(''); // Changed from selectedAwardedId
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
 
-  // Fetch awarded for filter
-  const { data: awardedData } = useQuery({
-    queryKey: ['awarded-for-specialisation-filter'],
-    queryFn: () => institutesApi.getAwardedData(),
+  // Fetch course categories for filter (replacing awarded)
+  const { data: categoriesData } = useQuery({
+    queryKey: ['course-categories'],
+    queryFn: () => institutesApi.getCourseMasterData(),
     staleTime: 5 * 60 * 1000, // 5 minutes - prevent auto-refresh
   });
 
-  const awardedList = Array.isArray(awardedData) ? awardedData : (awardedData?.data || []);
+  const categoriesList = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
   // Fetch specialisation data - ensure we're calling the correct endpoint
   const { data, isLoading } = useQuery({
-    queryKey: ['specialisations-list', selectedAwardedId, searchTerm, page, itemsPerPage],
+    queryKey: ['specialisations-list', selectedCategoryId, searchTerm, page, itemsPerPage],
     queryFn: async () => {
-      const result = await institutesApi.getSpecialisationData(selectedAwardedId || undefined);
+      const result = await institutesApi.getSpecialisationData(selectedCategoryId || undefined);
       // Ensure we're getting specialisations, not course master data
       if (Array.isArray(result)) {
         return result;
@@ -49,9 +49,13 @@ export default function SpecialisationPage() {
     const search = searchTerm.toLowerCase();
     return (
       item.name?.toLowerCase().includes(search) ||
+      item.courseCategory?.name?.toLowerCase().includes(search) ||
+      item.category?.name?.toLowerCase().includes(search) ||
+      item.mainCategory?.toLowerCase().includes(search) ||
+      item.id?.toString().includes(search) ||
+      // Support old field names for backward compatibility
       item.awarded?.name?.toLowerCase().includes(search) ||
-      item.awarded?.courseCategory?.name?.toLowerCase().includes(search) ||
-      item.id?.toString().includes(search)
+      item.awarded?.courseCategory?.name?.toLowerCase().includes(search)
     );
   });
 
@@ -96,20 +100,20 @@ export default function SpecialisationPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Specialisations List</CardTitle>
               <div className="flex items-center gap-3">
-                {/* Awarded Filter */}
+                {/* Course Category Filter */}
                 <div className="relative">
                   <select
-                    value={selectedAwardedId}
+                    value={selectedCategoryId}
                     onChange={(e) => {
-                      setSelectedAwardedId(e.target.value);
+                      setSelectedCategoryId(e.target.value);
                       setPage(1);
                     }}
                     className="appearance-none px-4 py-2 pr-8 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                   >
-                    <option value="">All Awarded</option>
-                    {awardedList.map((awarded: any) => (
-                      <option key={awarded.id} value={awarded.id}>
-                        {awarded.name} ({awarded.courseCategory?.name || 'N/A'})
+                    <option value="">All Categories</option>
+                    {categoriesList.map((category: any) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
                       </option>
                     ))}
                   </select>
@@ -183,8 +187,8 @@ export default function SpecialisationPage() {
                       <tr className="border-b border-slate-200">
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">ID</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Name</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Awarded</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Course Category</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Main Category</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Courses</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Action</th>
@@ -201,8 +205,9 @@ export default function SpecialisationPage() {
                         paginatedItems.map((item: any, index: number) => {
                           const displayId = item.id || (totalItems - startIndex - index);
                           const itemName = item.name || 'N/A';
-                          const awardedName = item.awarded?.name || 'N/A';
-                          const categoryName = item.awarded?.courseCategory?.name || 'N/A';
+                          // Support both new (courseCategory) and old (awarded.courseCategory) field names
+                          const categoryName = item.courseCategory?.name || item.category?.name || item.awarded?.courseCategory?.name || 'N/A';
+                          const mainCategory = item.mainCategory || 'N/A';
                           const courseCount = item._count?.courses || 0;
                           const isActive = item.isActive !== false;
 
@@ -213,8 +218,8 @@ export default function SpecialisationPage() {
                             >
                               <td className="py-3 px-4 text-sm text-slate-900 font-medium">{displayId}</td>
                               <td className="py-3 px-4 text-sm text-slate-700 font-medium">{itemName}</td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{awardedName}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">{categoryName}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{mainCategory}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">{courseCount}</td>
                               <td className="py-3 px-4">
                                 <span
