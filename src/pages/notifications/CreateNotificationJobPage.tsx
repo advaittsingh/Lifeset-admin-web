@@ -6,10 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Loader2, Image as ImageIcon, X, Calendar, Clock, Globe, Repeat } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Image as ImageIcon, X, Calendar, Clock, Globe, Repeat, Plus, XCircle } from 'lucide-react';
 import { notificationJobsApi } from '../../services/api/notification-jobs';
+import { usersApi, User } from '../../services/api/users';
 import { useToast } from '../../contexts/ToastContext';
 import { institutesApi } from '../../services/api/institutes';
+import { apiClient } from '../../services/api/client';
 
 export default function CreateNotificationJobPage() {
   const navigate = useNavigate();
@@ -19,7 +21,7 @@ export default function CreateNotificationJobPage() {
   const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
-    messageType: 'admin',
+    notificationType: 'ADMIN', // Backend enum value for notification type
     title: '',
     content: '',
     image: '',
@@ -37,8 +39,23 @@ export default function CreateNotificationJobPage() {
     },
   });
 
+  // Notification types that match backend NotificationType enum
+  // Backend enum: ADMIN, CURRENT_AFFAIRS, GENERAL_KNOWLEDGE, MCQ, GOVT_VACANCY, DAILY_DIGEST, KNOW_YOURSELF
+  const notificationTypes = [
+    { value: 'ADMIN', label: 'Admin' },
+    { value: 'CURRENT_AFFAIRS', label: 'Current Affairs' },
+    { value: 'GENERAL_KNOWLEDGE', label: 'General Knowledge' },
+    { value: 'MCQ', label: 'MCQ' },
+    { value: 'GOVT_VACANCY', label: 'Government Vacancy' },
+    { value: 'DAILY_DIGEST', label: 'Daily Digest' },
+    { value: 'KNOW_YOURSELF', label: 'Know Yourself' },
+  ];
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sendToAll, setSendToAll] = useState(true);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
 
   // Fetch job data if editing
   const { data: jobData, isLoading: isLoadingJob } = useQuery({
@@ -55,13 +72,60 @@ export default function CreateNotificationJobPage() {
 
   const colleges = Array.isArray(collegesData) ? collegesData : (collegesData?.data || []);
 
+  // Fetch users for selection
+  const { data: usersData } = useQuery({
+    queryKey: ['users', userSearchTerm],
+    queryFn: () => usersApi.getAll({ search: userSearchTerm, limit: 100 }),
+    enabled: !sendToAll,
+  });
+
+  const users = usersData?.data || [];
+
+  // Upload image mutation
+  const imageUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await apiClient.post('/files/upload', formData, {
+        headers: {
+          // Don't set Content-Type manually - let axios set it with boundary for FormData
+        },
+      });
+      
+      const imageUrl = response.data?.data?.url || 
+                      response.data?.url || 
+                      response.data?.data?.imageUrl ||
+                      response.data?.imageUrl;
+      
+      if (!imageUrl) {
+        throw new Error('Failed to get image URL from upload response');
+      }
+      
+      return imageUrl;
+    },
+    onSuccess: (imageUrl) => {
+      setFormData(prev => ({
+        ...prev,
+        image: imageUrl,
+      }));
+      setImagePreview(imageUrl);
+      setImageFile(null);
+      showToast('Image uploaded successfully', 'success');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || 'Failed to upload image';
+      showToast(errorMessage, 'error');
+    },
+  });
+
   // Load job data when editing
   useEffect(() => {
     if (isEditMode && jobData) {
       const job = jobData as any;
       const scheduledDate = new Date(job.scheduledAt);
       setFormData({
-        messageType: job.messageType || 'admin',
+        notificationType: (job as any).notificationType || 'ADMIN',
         title: job.title || '',
         content: job.content || '',
         image: job.image || '',
@@ -81,51 +145,89 @@ export default function CreateNotificationJobPage() {
       if (job.image) {
         setImagePreview(job.image);
       }
+      // Load selected user IDs if available
+      if (job.userIds && Array.isArray(job.userIds) && job.userIds.length > 0) {
+        setSelectedUserIds(job.userIds);
+        setSendToAll(false);
+      } else {
+        setSendToAll(true);
+      }
     }
   }, [isEditMode, jobData]);
 
+  // Handle image file selection
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file type
       if (!file.type.startsWith('image/')) {
         showToast('Please select an image file', 'error');
         return;
       }
+      
+      // Validate file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         showToast('Image size should be less than 5MB', 'error');
         return;
       }
-      setImageFile(file);
+      
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
+        setImageFile(file);
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Upload the file
+      imageUploadMutation.mutate(file);
     }
   };
 
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
-    setFormData({ ...formData, image: '' });
+    setFormData(prev => ({ ...prev, image: '' }));
   };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Upload image if file is selected
-      let imageUrl = formData.image;
-      if (imageFile) {
-        // TODO: Upload image to server and get URL
-        // For now, using base64 data URL
-        imageUrl = imagePreview || '';
+      // Validate image URL if provided
+      let imageUrl = data.image?.trim() || '';
+      if (imageUrl) {
+        // Check if URL is HTTPS
+        if (!imageUrl.startsWith('https://')) {
+          throw new Error('Image URL must use HTTPS (not HTTP) for push notifications');
+        }
+        
+        // Check if URL has valid file extension
+        const validExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
+        const hasValidExtension = validExtensions.some(ext => 
+          imageUrl.toLowerCase().endsWith(ext)
+        );
+        
+        if (!hasValidExtension) {
+          throw new Error('Image URL must have a valid file extension (.jpg, .jpeg, .png, or .gif)');
+        }
       }
 
       // Combine date and time
       const scheduledDateTime = new Date(`${data.scheduledAt}T${data.scheduledTime}`);
       const scheduledAtISO = scheduledDateTime.toISOString();
 
-      return notificationJobsApi.create({
-        messageType: data.messageType,
+      // Validate that at least one targeting method is selected
+      const hasUserIds = !sendToAll && selectedUserIds && selectedUserIds.length > 0;
+      const hasFilterConditions = Object.keys(data.filterConditions).some(key => 
+        data.filterConditions[key] && data.filterConditions[key].toString().trim() !== ''
+      );
+
+      if (!sendToAll && !hasUserIds && !hasFilterConditions) {
+        throw new Error('Please select at least one targeting method: specific users or filter conditions');
+      }
+
+      const payload = {
+        messageType: 'admin', // Default value for backend compatibility
+        notificationType: data.notificationType || 'ADMIN',
         title: data.title,
         content: data.content,
         image: imageUrl || undefined,
@@ -133,10 +235,20 @@ export default function CreateNotificationJobPage() {
         scheduledAt: scheduledAtISO,
         language: data.language,
         frequency: data.frequency,
-        filterConditions: Object.keys(data.filterConditions).some(key => data.filterConditions[key])
+        userIds: hasUserIds ? selectedUserIds : (sendToAll ? undefined : undefined),
+        filterConditions: hasFilterConditions
           ? data.filterConditions
           : undefined,
-      });
+      };
+
+      // Debug logging
+      console.log('Creating notification job with payload:', JSON.stringify(payload, null, 2));
+      console.log('Send to all:', sendToAll);
+      console.log('Selected user IDs:', selectedUserIds);
+      console.log('Has user IDs:', hasUserIds);
+      console.log('Has filter conditions:', hasFilterConditions);
+
+      return notificationJobsApi.create(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-jobs'] });
@@ -144,26 +256,49 @@ export default function CreateNotificationJobPage() {
       navigate('/notifications');
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Failed to create notification job', 'error');
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to create notification job';
+      showToast(errorMessage, 'error');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Upload image if file is selected
-      let imageUrl = formData.image;
-      if (imageFile) {
-        // TODO: Upload image to server and get URL
-        // For now, using base64 data URL
-        imageUrl = imagePreview || '';
+      // Validate image URL if provided
+      let imageUrl = data.image?.trim() || '';
+      if (imageUrl) {
+        // Check if URL is HTTPS
+        if (!imageUrl.startsWith('https://')) {
+          throw new Error('Image URL must use HTTPS (not HTTP) for push notifications');
+        }
+        
+        // Check if URL has valid file extension
+        const validExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
+        const hasValidExtension = validExtensions.some(ext => 
+          imageUrl.toLowerCase().endsWith(ext)
+        );
+        
+        if (!hasValidExtension) {
+          throw new Error('Image URL must have a valid file extension (.jpg, .jpeg, .png, or .gif)');
+        }
       }
 
       // Combine date and time
       const scheduledDateTime = new Date(`${data.scheduledAt}T${data.scheduledTime}`);
       const scheduledAtISO = scheduledDateTime.toISOString();
 
-      return notificationJobsApi.update(id!, {
-        messageType: data.messageType,
+      // Validate that at least one targeting method is selected
+      const hasUserIds = !sendToAll && selectedUserIds && selectedUserIds.length > 0;
+      const hasFilterConditions = Object.keys(data.filterConditions).some(key => 
+        data.filterConditions[key] && data.filterConditions[key].toString().trim() !== ''
+      );
+
+      if (!sendToAll && !hasUserIds && !hasFilterConditions) {
+        throw new Error('Please select at least one targeting method: specific users or filter conditions');
+      }
+
+      const payload = {
+        messageType: 'admin', // Default value for backend compatibility
+        notificationType: data.notificationType || 'ADMIN',
         title: data.title,
         content: data.content,
         image: imageUrl || undefined,
@@ -171,10 +306,18 @@ export default function CreateNotificationJobPage() {
         scheduledAt: scheduledAtISO,
         language: data.language,
         frequency: data.frequency,
-        filterConditions: Object.keys(data.filterConditions).some(key => data.filterConditions[key])
+        userIds: sendToAll ? null : (hasUserIds ? selectedUserIds : null),
+        filterConditions: hasFilterConditions
           ? data.filterConditions
           : undefined,
-      });
+      };
+
+      // Debug logging
+      console.log('Updating notification job with payload:', JSON.stringify(payload, null, 2));
+      console.log('Selected user IDs:', selectedUserIds);
+      console.log('Has user IDs:', hasUserIds);
+
+      return notificationJobsApi.update(id!, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-jobs'] });
@@ -183,7 +326,8 @@ export default function CreateNotificationJobPage() {
       navigate('/notifications');
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Failed to update notification job', 'error');
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to update notification job';
+      showToast(errorMessage, 'error');
     },
   });
 
@@ -194,6 +338,19 @@ export default function CreateNotificationJobPage() {
       showToast('Please fill in all required fields', 'error');
       return;
     }
+
+    // Validate user selection if not sending to all
+    if (!sendToAll && selectedUserIds.length === 0) {
+      showToast('Please select at least one user or check "Send to all users"', 'error');
+      return;
+    }
+
+    console.log('Submitting form with:', {
+      formData,
+      sendToAll,
+      selectedUserIds,
+      selectedUserIdsLength: selectedUserIds.length
+    });
 
     if (isEditMode) {
       updateMutation.mutate(formData);
@@ -242,22 +399,23 @@ export default function CreateNotificationJobPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">
-                      Message Type *
+                      Notification Type *
                     </label>
                     <select
-                      value={formData.messageType}
-                      onChange={(e) => setFormData({ ...formData, messageType: e.target.value })}
+                      value={formData.notificationType}
+                      onChange={(e) => setFormData({ ...formData, notificationType: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="admin">Admin</option>
-                      <option value="content">Content</option>
-                      <option value="system">System</option>
-                      <option value="birthday">Birthday</option>
-                      <option value="reminder">Reminder</option>
-                      <option value="missing_you">Missing You</option>
-                      <option value="new_student">New Student</option>
+                      {notificationTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
                     </select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Select the type of notification to be displayed in the mobile app notification page
+                    </p>
                   </div>
 
                   <div>
@@ -304,50 +462,61 @@ export default function CreateNotificationJobPage() {
                     <label className="text-sm font-medium text-slate-700 mb-2 block">
                       Image (Optional)
                     </label>
-                    {imagePreview ? (
-                      <div className="relative">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-full h-48 object-cover rounded-lg border border-slate-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                    {imagePreview || formData.image ? (
+                      <div className="space-y-2">
+                        <div className="relative inline-block">
+                          <img
+                            src={imagePreview || formData.image || ''}
+                            alt="Preview"
+                            className="max-w-full h-48 object-cover rounded-md border border-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {!imagePreview && formData.image && (
+                          <Input
+                            value={formData.image}
+                            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                            placeholder="https://example.com/image.jpg"
+                            type="url"
+                            className="mt-2"
+                          />
+                        )}
                       </div>
                     ) : (
-                      <div>
-                        <input
-                          type="file"
-                          id="notification-image-upload"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                        <label htmlFor="notification-image-upload">
-                          <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer bg-slate-50 hover:bg-blue-50/50">
-                            <div className="flex flex-col items-center gap-2">
-                              <ImageIcon className="h-8 w-8 text-slate-400" />
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">Click to upload image</p>
-                                <p className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</p>
-                              </div>
-                            </div>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={imageUploadMutation.isPending}
+                            className="flex-1"
+                          />
+                          <span className="text-xs text-slate-500">or</span>
+                          <Input
+                            value={formData.image}
+                            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                            placeholder="https://example.com/image.jpg"
+                            type="url"
+                            className="flex-1"
+                          />
+                        </div>
+                        {imageUploadMutation.isPending && (
+                          <div className="flex items-center gap-2 text-sm text-blue-600 mt-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading image...
                           </div>
-                        </label>
-                      </div>
-                    )}
-                    {!imagePreview && (
-                      <Input
-                        value={formData.image}
-                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                        placeholder="Or enter image URL"
-                        className="mt-2"
-                      />
+                        )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          Upload an image file (max 5MB) or enter an image URL
+                        </p>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -423,6 +592,79 @@ export default function CreateNotificationJobPage() {
 
             {/* Right Column - Filter Conditions */}
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Target Users</CardTitle>
+                  <CardDescription>
+                    Choose how to target users for this notification
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sendToAll"
+                      checked={sendToAll}
+                      onChange={(e) => {
+                        setSendToAll(e.target.checked);
+                        if (e.target.checked) {
+                          setSelectedUserIds([]);
+                        }
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                    />
+                    <label htmlFor="sendToAll" className="text-sm font-medium text-slate-700">
+                      Send to all users
+                    </label>
+                  </div>
+
+                  {!sendToAll && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 block">
+                        Select Users *
+                      </label>
+                      <Input
+                        placeholder="Search users by phone number..."
+                        value={userSearchTerm}
+                        onChange={(e) => setUserSearchTerm(e.target.value)}
+                        className="mb-2"
+                      />
+                      <div className="border border-slate-200 rounded-md max-h-60 overflow-y-auto p-2 space-y-2">
+                        {users.length === 0 ? (
+                          <div className="text-sm text-slate-500 text-center py-4">No users found</div>
+                        ) : (
+                          users.map((user: User) => (
+                            <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-slate-50 rounded">
+                              <input
+                                type="checkbox"
+                                id={`user-${user.id}`}
+                                checked={selectedUserIds.includes(user.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedUserIds([...selectedUserIds, user.id]);
+                                  } else {
+                                    setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                                  }
+                                }}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                              />
+                              <label htmlFor={`user-${user.id}`} className="text-sm text-slate-700 flex-1 cursor-pointer">
+                                {user.mobile || user.email || user.id}
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {selectedUserIds.length > 0 && (
+                        <p className="text-xs text-slate-500">
+                          {selectedUserIds.length} user(s) selected
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>User Filter Conditions</CardTitle>

@@ -118,6 +118,35 @@ export default function WallCategoryDetailPage() {
 
     const chapters = chaptersData || [];
 
+    // Fetch post counts for each chapter
+    const { data: chapterPostCounts } = useQuery<Map<string, number>>({
+      queryKey: ['chapter-post-counts', subCategoryId],
+      queryFn: async () => {
+        if (chapters.length === 0) return new Map();
+        const countMap = new Map<string, number>();
+        try {
+          // Fetch current affairs and general knowledge articles for this sub-category
+          const [caResult, gkResult] = await Promise.all([
+            cmsApi.getCurrentAffairs({ subCategoryId }).catch(() => ({ data: [] })),
+            cmsApi.getGeneralKnowledge({}).catch(() => ({ data: [] })),
+          ]);
+          const caItems = Array.isArray(caResult) ? caResult : (caResult?.data || []);
+          const gkItems = Array.isArray(gkResult) ? gkResult : (gkResult?.data || []);
+          const allItems = [...caItems, ...gkItems].filter((item: any) => item.metadata?.subCategoryId === subCategoryId);
+          
+          // Count articles per chapter
+          chapters.forEach(chapter => {
+            const count = allItems.filter((item: any) => item.metadata?.chapterId === chapter.id).length;
+            countMap.set(chapter.id, count);
+          });
+        } catch (error) {
+          console.error('Error fetching chapter post counts:', error);
+        }
+        return countMap;
+      },
+      enabled: expandedSubCategories.has(subCategoryId) && chapters.length > 0,
+    });
+
     if (!expandedSubCategories.has(subCategoryId)) {
       return null;
     }
@@ -175,6 +204,12 @@ export default function WallCategoryDetailPage() {
                     {chapter.description && (
                       <p className="text-xs text-slate-600 mt-1">{chapter.description}</p>
                     )}
+                    {/* Summary for Chapter */}
+                    <div className="mt-2 p-2 bg-white rounded border border-slate-200">
+                      <p className="text-xs text-slate-600">
+                        <span className="font-medium">{chapterPostCounts?.get(chapter.id) || 0}</span> Post{(chapterPostCounts?.get(chapter.id) || 0) !== 1 ? 's' : ''}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
@@ -226,9 +261,9 @@ export default function WallCategoryDetailPage() {
       setIsCreateSubCategoryDialogOpen(false);
       setSubCategoryFormData({ name: '', description: '', status: 'active' });
       
-      // Refetch sub-categories
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', id] });
-      // Also refetch parents to update subCategoryCount
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
     },
     onError: (error: any) => {
@@ -247,9 +282,9 @@ export default function WallCategoryDetailPage() {
     onSuccess: async () => {
       showToast('Sub-category deleted successfully', 'success');
       
-      // Refetch sub-categories
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', id] });
-      // Also refetch parents to update subCategoryCount
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
     },
     onError: (error: any) => {
@@ -292,7 +327,8 @@ export default function WallCategoryDetailPage() {
       showToast('Sub-category updated successfully', 'success');
       setIsEditSubCategoryDialogOpen(false);
       setEditingSubCategory(null);
-      // Refetch sub-categories and parent counts
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', id] });
       await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
     },
@@ -359,6 +395,10 @@ export default function WallCategoryDetailPage() {
       setIsCreateChapterDialogOpen(false);
       setChapterFormData({ name: '', description: '', status: 'active', order: '' });
       setSelectedSubCategoryForChapter(null);
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['chapters', variables.subCategoryId] });
+      await queryClient.invalidateQueries({ queryKey: ['all-chapters', id] });
+      await queryClient.invalidateQueries({ queryKey: ['chapter-post-counts'] });
       await queryClient.refetchQueries({ queryKey: ['chapters', variables.subCategoryId] });
       await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
     },
@@ -387,6 +427,10 @@ export default function WallCategoryDetailPage() {
       const subCatId = editingChapter?.subCategoryId;
       setEditingChapter(null);
       if (subCatId) {
+        // Invalidate and refetch to get updated counts
+        await queryClient.invalidateQueries({ queryKey: ['chapters', subCatId] });
+        await queryClient.invalidateQueries({ queryKey: ['all-chapters', id] });
+        await queryClient.invalidateQueries({ queryKey: ['chapter-post-counts'] });
         await queryClient.refetchQueries({ queryKey: ['chapters', subCatId] });
         await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
       }
@@ -407,8 +451,14 @@ export default function WallCategoryDetailPage() {
       showToast('Chapter deleted successfully', 'success');
       const subCatId = editingChapter?.subCategoryId;
       if (subCatId) {
+        // Invalidate and refetch to get updated counts
+        await queryClient.invalidateQueries({ queryKey: ['chapters', subCatId] });
+        await queryClient.invalidateQueries({ queryKey: ['all-chapters', id] });
+        await queryClient.invalidateQueries({ queryKey: ['chapter-post-counts'] });
+        await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
         await queryClient.refetchQueries({ queryKey: ['chapters', subCatId] });
         await queryClient.refetchQueries({ queryKey: ['all-chapters', id] });
+        await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       }
     },
     onError: (error: any) => {
@@ -557,15 +607,14 @@ export default function WallCategoryDetailPage() {
                     For: {selectedCategory.categoryFor || selectedCategory.metadata?.categoryFor}
                   </p>
                 )}
-                <div className="flex items-center gap-4 mt-2">
-                  <p className="text-xs text-slate-500">
-                    {selectedCategory.postCount || 0} posts
+                {/* Summary Section */}
+                <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Summary</p>
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">{subCategories.length}</span> Sub-Category{subCategories.length !== 1 ? 'ies' : ''} |{' '}
+                    <span className="font-medium">{allChaptersData?.length || 0}</span> Chapter{(allChaptersData?.length || 0) !== 1 ? 's' : ''} |{' '}
+                    <span className="font-medium">{selectedCategory.postCount || 0}</span> Post{(selectedCategory.postCount || 0) !== 1 ? 's' : ''}
                   </p>
-                  {selectedCategory.subCategoryCount !== undefined && (
-                    <p className="text-xs text-slate-500">
-                      {selectedCategory.subCategoryCount || 0} sub-categories
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
@@ -636,8 +685,13 @@ export default function WallCategoryDetailPage() {
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
                           <span>{subCategory.postCount || 0} posts</span>
                           <span>{chapterCountMap.get(subCategory.id) || 0} chapters</span>
-                          <span>Created: {new Date(subCategory.createdAt).toLocaleString()}</span>
-                          <span>Updated: {new Date(subCategory.updatedAt).toLocaleString()}</span>
+                        </div>
+                        {/* Summary for Sub-Category */}
+                        <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200">
+                          <p className="text-xs text-slate-600">
+                            <span className="font-medium">{chapterCountMap.get(subCategory.id) || 0}</span> Chapter{(chapterCountMap.get(subCategory.id) || 0) !== 1 ? 's' : ''} |{' '}
+                            <span className="font-medium">{subCategory.postCount || 0}</span> Post{(subCategory.postCount || 0) !== 1 ? 's' : ''}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">

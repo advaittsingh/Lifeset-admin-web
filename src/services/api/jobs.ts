@@ -64,6 +64,7 @@ export const jobsApi = {
     candidateQualities?: string[];
     isPublic?: boolean;
     isPrivate?: boolean;
+    isPublished?: boolean;
     privateFilters?: {
       selectCollege?: string;
       selectCourse?: string;
@@ -97,6 +98,7 @@ export const jobsApi = {
         'Full-time': 'FULL_TIME',
         'Part-time': 'PART_TIME',
         'Contract': 'CONTRACT',
+        'Contractual': 'CONTRACT', // Map Contractual to CONTRACT
         'Internship': 'INTERNSHIP',
         'Freelance': 'FREELANCE',
       };
@@ -128,6 +130,7 @@ export const jobsApi = {
       candidateQualities: data.candidateQualities && data.candidateQualities.length > 0 ? data.candidateQualities : undefined,
       isPublic: data.isPublic,
       isPrivate: data.isPrivate,
+      isPublished: data.isPublished,
       // Flatten privateFilters
       privateFiltersCollege: data.isPrivate && data.privateFilters?.selectCollege ? data.privateFilters.selectCollege : undefined,
       privateFiltersCourse: data.isPrivate && data.privateFilters?.selectCourse ? data.privateFilters.selectCourse : undefined,

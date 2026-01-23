@@ -4,10 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Select } from '../../components/ui/select';
 import { Plus, Edit, Trash2, Loader2, BookOpen, ArrowLeft } from 'lucide-react';
 import { institutesApi } from '../../services/api/institutes';
 import { useToast } from '../../contexts/ToastContext';
@@ -15,15 +12,10 @@ import { useToast } from '../../contexts/ToastContext';
 export default function CourseCreationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    categoryId: '',
-    description: '',
-  });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
 
   const { data: coursesData, isLoading } = useQuery({
     queryKey: ['institute-courses', id],
@@ -31,21 +23,36 @@ export default function CourseCreationPage() {
     enabled: !!id,
   });
 
-  const { data: categoriesData } = useQuery({
-    queryKey: ['course-categories'],
-    queryFn: () => institutesApi.getCourseMasterData(),
-  });
-
   const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
-  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
 
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id: courseId, data }: { id: string; data: any }) => institutesApi.updateCourse(courseId, data),
+  const deleteMutation = useMutation({
+    mutationFn: (courseId: string) => institutesApi.deleteCourse(courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['institute-courses'] });
-      showToast('Course updated successfully', 'success');
-      setIsEditDialogOpen(false);
+      showToast('Course deleted successfully', 'success');
+      setIsDeleteDialogOpen(false);
+      setSelectedCourse(null);
+    },
+    onError: (error: any) => {
+      console.error('Error deleting course:', error);
+      let errorMessage = 'Failed to delete course';
+      
+      try {
+        const responseData = error?.response?.data;
+        if (responseData?.message) {
+          if (Array.isArray(responseData.message)) {
+            errorMessage = responseData.message.join(', ');
+          } else {
+            errorMessage = String(responseData.message);
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        // Keep default message
+      }
+      
+      showToast(errorMessage, 'error');
     },
   });
 
@@ -104,16 +111,22 @@ export default function CourseCreationPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedCourse(course);
-                              setFormData({
-                                name: course.name,
-                                categoryId: course.categoryId || '',
-                                description: course.description || '',
-                              });
-                              setIsEditDialogOpen(true);
+                              navigate(`/institutes/${id}/courses/edit/${course.id}`);
                             }}
+                            className="hover:bg-amber-50 hover:border-amber-300"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                            className="hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -125,53 +138,50 @@ export default function CourseCreationPage() {
           </CardContent>
         </Card>
 
-        {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Edit Course</DialogTitle>
+              <DialogTitle>Delete Course</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Course Name *</label>
-                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Category *</label>
-                <Select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
-                <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={4} />
-              </div>
+            <div className="py-4">
+              <p className="text-slate-600 mb-2">
+                Are you sure you want to delete <strong>{selectedCourse?.name}</strong>?
+              </p>
+              <p className="text-sm text-slate-500">
+                This action cannot be undone. All associated data will be permanently deleted.
+              </p>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                onClick={() => updateMutation.mutate({
-                  id: selectedCourse?.id,
-                  data: formData,
-                })}
-                disabled={updateMutation.isPending}
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setSelectedCourse(null);
+                }}
+                disabled={deleteMutation.isPending}
               >
-                {updateMutation.isPending ? (
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (selectedCourse?.id) {
+                    deleteMutation.mutate(selectedCourse.id);
+                  }
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
+                    Deleting...
                   </>
                 ) : (
-                  'Update'
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
                 )}
               </Button>
             </DialogFooter>

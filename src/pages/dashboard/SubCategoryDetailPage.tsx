@@ -67,6 +67,15 @@ export default function SubCategoryDetailPage() {
   const subCategories: WallCategory[] = subCategoriesData || [];
   const subCategory = subCategories.find((cat) => cat.id === subCategoryId);
 
+  // Fetch chapters for this sub-category
+  const { data: chaptersData } = useQuery({
+    queryKey: ['chapters', subCategoryId],
+    queryFn: () => subCategoryId ? cmsApi.getChaptersBySubCategory(subCategoryId) : [],
+    enabled: !!subCategoryId,
+  });
+
+  const chapters = chaptersData || [];
+
   // Fetch current affairs articles for this sub-category
   const { data: currentAffairsData, isLoading: isLoadingCurrentAffairs } = useQuery({
     queryKey: ['current-affairs', subCategoryId, searchTerm],
@@ -122,11 +131,16 @@ export default function SubCategoryDetailPage() {
         return cmsApi.deleteGeneralKnowledge(id);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
-      queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
-      queryClient.invalidateQueries({ queryKey: ['current-affairs', subCategoryId] });
-      queryClient.invalidateQueries({ queryKey: ['general-knowledge', subCategoryId] });
+    onSuccess: async () => {
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['current-affairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['general-knowledge'] });
+      await queryClient.invalidateQueries({ queryKey: ['current-affairs', subCategoryId] });
+      await queryClient.invalidateQueries({ queryKey: ['general-knowledge', subCategoryId] });
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      await queryClient.invalidateQueries({ queryKey: ['chapter-post-counts'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'sub-categories', categoryId] });
       showToast('Article deleted successfully', 'success');
       setIsDeleteDialogOpen(false);
       setSelectedItem(null);
@@ -220,9 +234,12 @@ export default function SubCategoryDetailPage() {
                 <p className="text-sm text-slate-600 mb-2">
                   {subCategory.description || 'No description'}
                 </p>
-                <div className="flex items-center gap-4 mt-2">
-                  <p className="text-xs text-slate-500">
-                    {subCategory.postCount || 0} posts
+                {/* Summary Section */}
+                <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Summary</p>
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">{chapters.length}</span> Chapter{chapters.length !== 1 ? 's' : ''} |{' '}
+                    <span className="font-medium">{subCategory.postCount || 0}</span> Post{(subCategory.postCount || 0) !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>

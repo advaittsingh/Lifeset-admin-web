@@ -16,6 +16,7 @@ export default function InstitutesPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [formData, setFormData] = useState({
     // Faculty Head Details
@@ -30,6 +31,7 @@ export default function InstitutesPage() {
     city: '',
     state: '',
     address: '',
+    canAffiliateCourse: false, // Checkbox for course affiliation
   });
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -57,8 +59,60 @@ export default function InstitutesPage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => institutesApi.updateInstitute(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['institutes'] });
-      showToast('Institute updated successfully', 'success');
+      showToast('Educational institution updated successfully', 'success');
       setIsEditDialogOpen(false);
+    },
+    onError: (error: any) => {
+      console.error('Error updating institute:', error);
+      let errorMessage = 'Failed to update institute';
+      
+      try {
+        const responseData = error?.response?.data;
+        if (responseData?.message) {
+          if (Array.isArray(responseData.message)) {
+            errorMessage = responseData.message.join(', ');
+          } else {
+            errorMessage = String(responseData.message);
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        // Keep default message
+      }
+      
+      showToast(errorMessage, 'error');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => institutesApi.deleteInstitute(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['institutes'] });
+      showToast('Educational institution deleted successfully', 'success');
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+    },
+    onError: (error: any) => {
+      console.error('Error deleting institute:', error);
+      let errorMessage = 'Failed to delete institute';
+      
+      try {
+        const responseData = error?.response?.data;
+        if (responseData?.message) {
+          if (Array.isArray(responseData.message)) {
+            errorMessage = responseData.message.join(', ');
+          } else {
+            errorMessage = String(responseData.message);
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        // Keep default message
+      }
+      
+      showToast(errorMessage, 'error');
     },
   });
 
@@ -73,15 +127,15 @@ export default function InstitutesPage() {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Institutes</h1>
-            <p className="text-slate-600 mt-1">Manage institutes and colleges</p>
+            <h1 className="text-3xl font-bold text-slate-900">Educational Institutions</h1>
+            <p className="text-slate-600 mt-1">Manage educational institutions and colleges</p>
           </div>
           <Button
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
             onClick={() => navigate('/institutes/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Create Institute
+            Create Educational Institution
           </Button>
         </div>
 
@@ -91,7 +145,7 @@ export default function InstitutesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600">Total Institutes</p>
+                  <p className="text-sm font-medium text-blue-600">Total Educational Institutions</p>
                   <p className="text-2xl font-bold text-blue-900 mt-1">{totalInstitutes}</p>
                 </div>
                 <Building2 className="h-10 w-10 text-blue-500 opacity-50" />
@@ -137,11 +191,11 @@ export default function InstitutesPage() {
         <Card className="border-0 shadow-lg">
           <CardHeader className="border-b border-slate-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <CardTitle className="text-xl">All Institutes</CardTitle>
+              <CardTitle className="text-xl">All Educational Institutions</CardTitle>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search institutes by name, city, or state..."
+                  placeholder="Search educational institutions by name, city, or state..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full sm:w-80 pl-10"
@@ -166,8 +220,8 @@ export default function InstitutesPage() {
             ) : institutes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Building2 className="h-12 w-12 text-slate-400 mb-4" />
-                <p className="text-slate-600 mb-2">No institutes found</p>
-                <p className="text-sm text-slate-500">Create your first institute to get started</p>
+                <p className="text-slate-600 mb-2">No educational institutions found</p>
+                <p className="text-sm text-slate-500">Create your first educational institution to get started</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -186,7 +240,7 @@ export default function InstitutesPage() {
                               <Building2 className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-lg text-slate-900 truncate">{institute.name}</h3>
+                              <h3 className="font-bold text-lg text-slate-900 break-words">{institute.name}</h3>
                               {institute.type && (
                                 <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
                                   {institute.type}
@@ -196,9 +250,9 @@ export default function InstitutesPage() {
                           </div>
                           
                           {/* Location */}
-                          <div className="flex items-center gap-2 text-sm text-slate-600 mb-3">
-                            <MapPin className="h-4 w-4 text-slate-400" />
-                            <span className="truncate">
+                          <div className="flex items-start gap-2 text-sm text-slate-600 mb-3">
+                            <MapPin className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                            <span className="break-words">
                               {institute.city && institute.state 
                                 ? `${institute.city}, ${institute.state}`
                                 : institute.city || institute.state || 'Location not specified'}
@@ -209,15 +263,15 @@ export default function InstitutesPage() {
                           {(institute.email || institute.phone) && (
                             <div className="space-y-1 mb-3 text-xs text-slate-500">
                               {institute.email && (
-                                <div className="flex items-center gap-2">
-                                  <Mail className="h-3 w-3" />
-                                  <span className="truncate">{institute.email}</span>
+                                <div className="flex items-start gap-2">
+                                  <Mail className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                  <span className="break-words break-all">{institute.email}</span>
                                 </div>
                               )}
                               {institute.phone && (
                                 <div className="flex items-center gap-2">
-                                  <Phone className="h-3 w-3" />
-                                  <span>{institute.phone}</span>
+                                  <Phone className="h-3 w-3 flex-shrink-0" />
+                                  <span className="break-words">{institute.phone}</span>
                                 </div>
                               )}
                             </div>
@@ -308,11 +362,23 @@ export default function InstitutesPage() {
                               city: institute.city || '',
                               state: institute.state || '',
                               address: institute.address || '',
+                              canAffiliateCourse: institute.canAffiliateCourse || false,
                             });
                             setIsEditDialogOpen(true);
                           }}
                         >
                           <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                          onClick={() => {
+                            setSelectedItem(institute);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </CardContent>
@@ -327,7 +393,7 @@ export default function InstitutesPage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Institute</DialogTitle>
+              <DialogTitle>Edit Educational Institution</DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
               {/* Faculty Head Details Section */}
@@ -376,9 +442,9 @@ export default function InstitutesPage() {
 
               {/* Institute Details Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Institute Details</h3>
+                <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Educational Institution Details</h3>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">Institute Name *</label>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Educational Institution Name *</label>
                   <Input 
                     value={formData.name} 
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
@@ -430,6 +496,18 @@ export default function InstitutesPage() {
                     placeholder="Enter full address"
                   />
                 </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="canAffiliateCourse"
+                    checked={formData.canAffiliateCourse}
+                    onChange={(e) => setFormData({ ...formData, canAffiliateCourse: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                  />
+                  <label htmlFor="canAffiliateCourse" className="text-sm font-medium text-slate-700 cursor-pointer">
+                    Can Affiliate a Course
+                  </label>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -447,6 +525,7 @@ export default function InstitutesPage() {
                     pincode: formData.pincode,
                     district: formData.district,
                     address: formData.address,
+                    canAffiliateCourse: formData.canAffiliateCourse,
                     // Additional fields that backend might need
                     facultyHeadName: formData.facultyHeadName,
                     facultyHeadEmail: formData.facultyHeadEmail,
@@ -464,6 +543,56 @@ export default function InstitutesPage() {
                 }
               >
                 {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Update'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete Educational Institution</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-slate-600 mb-2">
+                Are you sure you want to delete <strong>{selectedItem?.name}</strong>?
+              </p>
+              <p className="text-sm text-slate-500">
+                This action cannot be undone. All associated courses and data will be permanently deleted.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setSelectedItem(null);
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (selectedItem?.id) {
+                    deleteMutation.mutate(selectedItem.id);
+                  }
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

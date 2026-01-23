@@ -27,6 +27,7 @@ import {
       Megaphone,
   Image as ImageIcon,
   Calendar as CalendarIcon,
+  Video,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -39,11 +40,14 @@ const coreMenuItems = [
   { icon: Megaphone, label: 'Sponsor Ads', path: '/sponsor-ads' },
   { icon: Bell, label: 'Notifications', path: '/notifications' },
   { icon: ImageIcon, label: 'App Icon', path: '/settings/app-icon' },
+  { icon: Video, label: 'Demo Videos', path: '/cms/demo-videos' },
 ];
 
 // Jobs & Opportunities - All job-related content
 const jobsMenuItems = [
   { icon: Briefcase, label: 'Job Postings', path: '/jobs' },
+  { icon: Briefcase, label: 'Internships', path: '/internships' },
+  { icon: Briefcase, label: 'Freelancer', path: '/freelancer' },
   { icon: Award, label: 'Govt Vacancies', path: '/cms/govt-vacancies' },
 ];
 
@@ -71,11 +75,11 @@ const communityMenuItems = [
 ];
 
 const instituteMenuItems = [
-  { icon: Building2, label: 'Institutes', path: '/institutes' },
+  { icon: Building2, label: 'Educational Institutions', path: '/institutes' },
   { icon: GraduationCap, label: 'Course Master', path: '/institutes/course-master' },
   { icon: Award, label: 'Awarded', path: '/dashboard/awards' },
   { icon: BookOpen, label: 'Specialisations', path: '/dashboard/specialisations' },
-  { icon: Search, label: 'Search Institutes', path: '/institutes/search' },
+  { icon: Search, label: 'Search Educational Institutions', path: '/institutes/search' },
 ];
 
 const recruiterMenuItems = [
@@ -372,9 +376,9 @@ export function Sidebar() {
               })}
             </div>
 
-            {/* Institute Section */}
+            {/* Educational Institutions Section */}
             <div className="pt-4 mt-4 border-t border-slate-700/50">
-              <p className="px-4 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Institutes</p>
+              <p className="px-4 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Educational Institutions</p>
               {instituteMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');

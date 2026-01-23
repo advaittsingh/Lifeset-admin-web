@@ -53,11 +53,11 @@ export default function AwardedDetailPage() {
 
   const awarded = awardedData;
 
-  // Fetch specialisations for this awarded
+  // Fetch specialisations for this category (specialisations are linked to category, not awarded)
   const { data: specialisationData, isLoading: isLoadingSpecialisations } = useQuery({
-    queryKey: ['specialisations-by-awarded', id],
-    queryFn: () => institutesApi.getSpecialisationData(id!),
-    enabled: !!id,
+    queryKey: ['specialisations-by-category', awarded?.courseCategoryId],
+    queryFn: () => institutesApi.getSpecialisationData(awarded?.courseCategoryId || undefined),
+    enabled: !!awarded?.courseCategoryId,
   });
 
   const specialisationList = Array.isArray(specialisationData) ? specialisationData : (specialisationData?.data || []);
@@ -66,7 +66,8 @@ export default function AwardedDetailPage() {
   const createSpecialisationMutation = useMutation({
     mutationFn: (data: any) => institutesApi.createSpecialisation(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-by-awarded', id] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations-by-category', awarded?.courseCategoryId] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations'] });
       showToast('Specialisation created successfully', 'success');
       setIsCreateSpecialisationOpen(false);
       setSpecialisationFormData({ name: '', description: '', isActive: true });
@@ -81,7 +82,8 @@ export default function AwardedDetailPage() {
   const updateSpecialisationMutation = useMutation({
     mutationFn: ({ id: specId, data }: { id: string; data: any }) => institutesApi.updateSpecialisation(specId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-by-awarded', id] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations-by-category', awarded?.courseCategoryId] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations'] });
       showToast('Specialisation updated successfully', 'success');
       setIsEditSpecialisationOpen(false);
     },
@@ -95,7 +97,8 @@ export default function AwardedDetailPage() {
   const deleteSpecialisationMutation = useMutation({
     mutationFn: (specId: string) => institutesApi.deleteSpecialisation(specId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['specialisations-by-awarded', id] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations-by-category', awarded?.courseCategoryId] });
+      queryClient.invalidateQueries({ queryKey: ['specialisations'] });
       showToast('Specialisation deleted successfully', 'success');
       setIsDeleteSpecialisationOpen(false);
     },
@@ -391,7 +394,7 @@ export default function AwardedDetailPage() {
                 onClick={() => createSpecialisationMutation.mutate({
                   name: specialisationFormData.name,
                   description: specialisationFormData.description,
-                  awardedId: id,
+                  courseCategoryId: awarded?.courseCategoryId,
                   isActive: specialisationFormData.isActive,
                 })}
                 disabled={createSpecialisationMutation.isPending || !specialisationFormData.name}
@@ -444,7 +447,7 @@ export default function AwardedDetailPage() {
                   data: {
                     name: specialisationFormData.name,
                     description: specialisationFormData.description,
-                    awardedId: id,
+                    courseCategoryId: awarded?.courseCategoryId,
                     isActive: specialisationFormData.isActive,
                   },
                 })}

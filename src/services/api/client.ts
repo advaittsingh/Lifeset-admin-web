@@ -2,12 +2,12 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/authStore';
 
 // Determine API base URL
-// Priority 1: Runtime detection (CloudFront, subdomains, etc.)
-// Priority 2: Environment variable (VITE_API_URL) - only if not on CloudFront
+// Priority 1: Runtime detection (CloudFront, subdomains, etc.) - MUST check first to avoid mixed content
+// Priority 2: Environment variable (VITE_API_URL) if explicitly set (only if not on CloudFront)
 // Priority 3: Localhost fallback
 // Priority 4: Default relative path
 const getApiBaseUrl = () => {
-  // Priority 1: Runtime detection - CloudFront MUST override everything to avoid mixed content
+  // Priority 1: Runtime detection - CloudFront MUST be checked first to avoid mixed content errors
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     
@@ -15,6 +15,14 @@ const getApiBaseUrl = () => {
     // This MUST override environment variables to prevent mixed content errors
     if (hostname.includes('cloudfront.net')) {
       return '/api/v1';
+    }
+    
+    // Priority 2: Check environment variable (only if not on CloudFront)
+    if (import.meta.env.VITE_API_URL) {
+      const envUrl = import.meta.env.VITE_API_URL;
+      if (envUrl && envUrl.trim() !== '') {
+        return envUrl.trim();
+      }
     }
     
     // Check if we're on S3 website (s3-website-*.amazonaws.com)
@@ -195,6 +203,12 @@ const refreshAccessToken = async (): Promise<string | null> => {
 };
 
 apiClient.interceptors.request.use(async (config) => {
+  // Handle FormData - remove Content-Type header to let axios set it with boundary
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+    delete config.headers['content-type'];
+  }
+
   // Skip token check for login and refresh endpoints
   if (config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh')) {
     return config;

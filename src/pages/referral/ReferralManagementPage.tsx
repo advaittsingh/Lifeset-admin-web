@@ -81,12 +81,51 @@ export default function ReferralManagementPage() {
   });
 
   const handleImageUpload = async (index: number, file: File) => {
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select an image file', 'error');
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!file.type.startsWith('image/') || !allowedTypes.includes(file.type.toLowerCase())) {
+      showToast('Please select a valid image file (JPEG, PNG, or WebP format)', 'error');
       return;
     }
+
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       showToast('Image size should be less than 5MB', 'error');
+      return;
+    }
+
+    // Validate image dimensions
+    try {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          // Carousel image requirements: 800×400 to 2560×1440 pixels (recommended: 1200×600)
+          const minWidth = 800;
+          const minHeight = 400;
+          const maxWidth = 2560;
+          const maxHeight = 1440;
+          
+          if (img.width > maxWidth || img.height > maxHeight) {
+            reject(new Error(`Image dimensions too large. Maximum: ${maxWidth}×${maxHeight}px. Your image: ${img.width}×${img.height}px`));
+            return;
+          }
+          if (img.width < minWidth || img.height < minHeight) {
+            reject(new Error(`Image dimensions too small. Minimum: ${minWidth}×${minHeight}px. Your image: ${img.width}×${img.height}px`));
+            return;
+          }
+          resolve(true);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('Failed to load image. Please ensure the file is a valid image.'));
+        };
+        img.src = objectUrl;
+      });
+    } catch (error: any) {
+      showToast(error.message || 'Image validation failed', 'error');
       return;
     }
 
@@ -94,16 +133,21 @@ export default function ReferralManagementPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadResponse = await apiClient.post('/files/upload', formData, {
+      const uploadResponse = await apiClient.post('/files/upload/carousel-image', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          // Don't set Content-Type manually - let axios set it with boundary for FormData
         },
       });
 
-      const imageUrl = uploadResponse.data.data?.url || uploadResponse.data.url;
+      // Handle different response structures
+      const imageUrl = uploadResponse.data?.data?.url || 
+                      uploadResponse.data?.url || 
+                      uploadResponse.data?.data?.imageUrl ||
+                      uploadResponse.data?.imageUrl;
 
       if (!imageUrl) {
-        throw new Error('Failed to get image URL from upload response');
+        console.error('Upload response:', uploadResponse.data);
+        throw new Error('Failed to get image URL from upload response. Please check the server response.');
       }
 
       const updatedItems = [...carouselItems];
@@ -115,10 +159,37 @@ export default function ReferralManagementPage() {
       setCarouselItems(updatedItems);
       showToast('Image uploaded successfully', 'success');
     } catch (error: any) {
-      showToast(
-        error.response?.data?.message || 'Failed to upload image',
-        'error',
-      );
+      console.error('Image upload error:', error);
+      let errorMessage = 'Failed to upload image';
+      
+      if (error.response) {
+        // Server responded with error
+        const responseData = error.response.data;
+        if (responseData?.message) {
+          errorMessage = responseData.message;
+        } else if (responseData?.error) {
+          errorMessage = typeof responseData.error === 'string' 
+            ? responseData.error 
+            : responseData.error.message || 'Upload failed';
+        } else if (responseData?.detail) {
+          errorMessage = responseData.detail;
+        } else if (error.response.status === 413) {
+          errorMessage = 'File too large. Maximum size is 5MB.';
+        } else if (error.response.status === 415) {
+          errorMessage = 'Unsupported file type. Please use JPEG, PNG, or WebP format.';
+        } else if (error.response.status === 400) {
+          errorMessage = 'Invalid file. Please check the file format and try again.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -463,6 +534,16 @@ export default function ReferralManagementPage() {
               <CardDescription>
                 Configure images and links for the referral carousel. Items will be displayed in order with auto-swipe functionality.
               </CardDescription>
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-semibold text-blue-900 mb-2">Image Upload Requirements:</p>
+                <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                  <li><strong>Supported Formats:</strong> JPEG, PNG, WebP</li>
+                  <li><strong>Recommended Dimensions:</strong> 1200×600px</li>
+                  <li><strong>Minimum Dimensions:</strong> 800×400px</li>
+                  <li><strong>Maximum Dimensions:</strong> 2560×1440px</li>
+                  <li><strong>Maximum File Size:</strong> 5MB</li>
+                </ul>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {carouselItems.length === 0 ? (
@@ -552,7 +633,8 @@ export default function ReferralManagementPage() {
                             <label htmlFor={`carousel-image-${index}`}>
                               <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
                                 <ImageIcon className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                                <p className="text-sm text-slate-600">Click to upload image</p>
+                                <p className="text-sm text-slate-600 font-medium mb-1">Click to upload image</p>
+                                <p className="text-xs text-slate-500">JPEG, PNG, WebP • Max 5MB • 800×400px to 2560×1440px (Recommended: 1200×600px)</p>
                               </div>
                             </label>
                           </div>

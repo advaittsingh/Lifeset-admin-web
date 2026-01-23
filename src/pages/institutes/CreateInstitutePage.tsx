@@ -29,13 +29,14 @@ export default function CreateInstitutePage() {
     city: '',
     state: '',
     address: '',
+    canAffiliateCourse: false, // Checkbox for course affiliation
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => institutesApi.createInstitute(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['institutes'] });
-      showToast('Institute created successfully', 'success');
+      showToast('Educational institution created successfully', 'success');
       navigate('/institutes');
     },
     onError: (error: any) => {
@@ -49,38 +50,100 @@ export default function CreateInstitutePage() {
       console.error('Request data sent:', error?.config?.data);
       console.error('Full error object:', JSON.stringify(error?.response, null, 2));
       
-      // Extract error message properly - handle objects
       let errorMessage = 'Failed to create institute';
       
       try {
-        if (error?.response?.data) {
-          const errorData = error.response.data;
-          
-          // Handle different error response formats
-          if (typeof errorData === 'string') {
-            errorMessage = errorData;
-          } else if (errorData?.message) {
-            errorMessage = String(errorData.message);
-          } else if (errorData?.error) {
-            errorMessage = String(errorData.error);
-          } else if (errorData?.code && errorData?.message) {
-            errorMessage = `${String(errorData.code)}: ${String(errorData.message)}`;
-          } else if (Array.isArray(errorData)) {
-            errorMessage = errorData.map((e: any) => String(e?.message || e)).join(', ');
-          } else {
-            // Try to extract any meaningful message from the object
-            const message = errorData?.message || errorData?.error || errorData?.detail;
-            errorMessage = message ? String(message) : 'Server error occurred. Please check console for details.';
+        const responseData = error?.response?.data;
+        
+        if (responseData) {
+          // Handle validation errors with details array (common in NestJS)
+          if (Array.isArray(responseData)) {
+            errorMessage = responseData
+              .map((err: any) => {
+                if (typeof err === 'string') return err;
+                if (err?.message) return err.message;
+                if (err?.constraints) {
+                  // NestJS validation constraints
+                  return Object.values(err.constraints).join(', ');
+                }
+                return JSON.stringify(err);
+              })
+              .join(', ');
+          }
+          // Handle error object with message array
+          else if (responseData.message) {
+            if (Array.isArray(responseData.message)) {
+              errorMessage = responseData.message.join(', ');
+            } else if (typeof responseData.message === 'string') {
+              errorMessage = responseData.message;
+            } else {
+              errorMessage = String(responseData.message);
+            }
+          }
+          // Handle details property (NestJS validation)
+          else if (responseData.details) {
+            if (Array.isArray(responseData.details)) {
+              errorMessage = responseData.details
+                .map((detail: any) => {
+                  if (typeof detail === 'string') return detail;
+                  if (detail?.message) return detail.message;
+                  return JSON.stringify(detail);
+                })
+                .join(', ');
+            } else if (typeof responseData.details === 'string') {
+              errorMessage = responseData.details;
+            } else if (responseData.details.message) {
+              if (Array.isArray(responseData.details.message)) {
+                errorMessage = responseData.details.message.join(', ');
+              } else {
+                errorMessage = responseData.details.message;
+              }
+            }
+          }
+          // Handle direct error property
+          else if (responseData.error) {
+            if (typeof responseData.error === 'string') {
+              errorMessage = responseData.error;
+            } else if (responseData.error.message) {
+              errorMessage = responseData.error.message;
+            } else {
+              errorMessage = String(responseData.error);
+            }
+          }
+          // Handle string response
+          else if (typeof responseData === 'string') {
+            errorMessage = responseData;
+          }
+          // Handle code + message format
+          else if (responseData.code && responseData.message) {
+            errorMessage = `${String(responseData.code)}: ${String(responseData.message)}`;
+          }
+          // Last resort - try to extract any meaningful message
+          else {
+            const extractedMessage = responseData.detail || responseData.msg || responseData.statusMessage;
+            errorMessage = extractedMessage 
+              ? String(extractedMessage)
+              : 'Server error occurred. Please check console for details.';
           }
         } else if (error?.message) {
-          errorMessage = String(error.message);
+          errorMessage = error.message;
         }
       } catch (e) {
-        errorMessage = 'An unexpected error occurred';
+        console.error('Error parsing error message:', e);
+        errorMessage = 'An unexpected error occurred. Please check console for details.';
       }
       
-      // Ensure we always pass a string
-      showToast(String(errorMessage), 'error');
+      // Ensure we always have a string (never pass an object to showToast)
+      if (typeof errorMessage !== 'string') {
+        errorMessage = JSON.stringify(errorMessage);
+      }
+      
+      // Limit message length to avoid UI issues
+      if (errorMessage.length > 200) {
+        errorMessage = errorMessage.substring(0, 200) + '...';
+      }
+      
+      showToast(errorMessage, 'error');
     },
   });
 
@@ -130,6 +193,7 @@ export default function CreateInstitutePage() {
       district: formData.district?.trim() || '',
       pincode: formData.pincode?.trim() || '',
       address: formData.address?.trim() || '',
+      canAffiliateCourse: formData.canAffiliateCourse,
     };
 
     console.log('Sending institute data:', JSON.stringify(apiData, null, 2));
@@ -148,11 +212,11 @@ export default function CreateInstitutePage() {
               className="hover:bg-slate-100"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Institutes
+              Back to Educational Institutions
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Register New Institute</h1>
-              <p className="text-slate-600 mt-1">Add a new institute to the platform</p>
+              <h1 className="text-3xl font-bold text-slate-900">Register New Educational Institution</h1>
+              <p className="text-slate-600 mt-1">Add a new educational institution to the platform</p>
             </div>
           </div>
           <Button
@@ -235,13 +299,13 @@ export default function CreateInstitutePage() {
                   <Building2 className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold text-slate-900">Institute Details</CardTitle>
+                  <CardTitle className="text-lg font-bold text-slate-900">Educational Institution Details</CardTitle>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">Institute Name *</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Educational Institution Name *</label>
                 <Input 
                   value={formData.name} 
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
@@ -292,6 +356,18 @@ export default function CreateInstitutePage() {
                   rows={3}
                   placeholder="Enter full address"
                 />
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="canAffiliateCourse"
+                  checked={formData.canAffiliateCourse}
+                  onChange={(e) => setFormData({ ...formData, canAffiliateCourse: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                />
+                <label htmlFor="canAffiliateCourse" className="text-sm font-medium text-slate-700 cursor-pointer">
+                  Can Affiliate a Course
+                </label>
               </div>
             </CardContent>
           </Card>

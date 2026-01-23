@@ -21,6 +21,7 @@ export interface Institute {
   description?: string;
   logo?: string;
   isActive: boolean;
+  canAffiliateCourse?: boolean; // Checkbox for course affiliation
   _count?: {
     students: number;
     courses: number;
@@ -79,9 +80,11 @@ export const institutesApi = {
   },
 
   // Specialisation Management
-  getSpecialisationData: async (awardedId?: string) => {
-    const params = awardedId ? { awardedId } : {};
+  getSpecialisationData: async (courseCategoryId?: string) => {
+    const params = courseCategoryId ? { courseCategoryId } : {};
+    console.log('Fetching specialisations with params:', params);
     const response = await apiClient.get('/admin/institutes/course-master/specialisations', { params });
+    console.log('Specialisations API response:', response.data);
     return response.data.data || response.data;
   },
   createSpecialisation: async (data: any) => {
@@ -109,7 +112,12 @@ export const institutesApi = {
 
   // Institutes
   getInstitutes: async (params?: any) => {
-    const response = await apiClient.get('/admin/institutes', { params });
+    const response = await apiClient.get('/admin/institutes', { 
+      params: {
+        ...params,
+        limit: params?.limit || 1000, // Fetch all institutes (high limit)
+      }
+    });
     return response.data.data || response.data;
   },
   createInstitute: async (data: any) => {
@@ -118,6 +126,10 @@ export const institutesApi = {
   },
   updateInstitute: async (id: string, data: any) => {
     const response = await apiClient.put(`/admin/institutes/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteInstitute: async (id: string) => {
+    const response = await apiClient.delete(`/admin/institutes/${id}`);
     return response.data.data || response.data;
   },
   getInstituteById: async (id: string) => {
@@ -138,12 +150,20 @@ export const institutesApi = {
     const response = await apiClient.get(`/admin/institutes/${instituteId}/courses`);
     return response.data.data || response.data;
   },
+  getCourseById: async (courseId: string) => {
+    const response = await apiClient.get(`/admin/institutes/courses/${courseId}`);
+    return response.data.data || response.data;
+  },
   createCourse: async (instituteId: string, data: any) => {
     const response = await apiClient.post(`/admin/institutes/${instituteId}/courses`, data);
     return response.data.data || response.data;
   },
   updateCourse: async (id: string, data: any) => {
     const response = await apiClient.put(`/admin/institutes/courses/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteCourse: async (id: string) => {
+    const response = await apiClient.delete(`/admin/institutes/courses/${id}`);
     return response.data.data || response.data;
   },
 

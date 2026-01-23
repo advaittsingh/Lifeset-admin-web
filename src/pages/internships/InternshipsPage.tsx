@@ -7,7 +7,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
 import { Briefcase, Plus, MapPin, DollarSign, Users, Loader2, Trash2, Edit, Eye, Clock, Award, Calendar } from 'lucide-react';
-import { jobsApi, JobPost } from '../../services/api/jobs';
+import { internshipsApi } from '../../services/api/internships';
+import { JobPost } from '../../services/api/jobs';
 import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../store/authStore';
@@ -25,7 +26,7 @@ const stripHtmlTags = (html: string): string => {
   }
 };
 
-export default function JobsPage() {
+export default function InternshipsPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -33,19 +34,24 @@ export default function JobsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  // Fetch jobs from posts API (since jobs are created as posts with postType: 'JOB')
+  // Fetch internships from posts API (filtered by jobType: INTERNSHIP)
   const { data: jobsData, isLoading, error } = useQuery({
-    queryKey: ['jobs', searchTerm],
+    queryKey: ['internships', searchTerm],
     queryFn: async () => {
       try {
-        // Use posts API with postType filter since jobs are stored as posts
+        // Use posts API with postType and jobType filter
         const postsResult = await postsApi.getAll({
           postType: 'JOB',
           search: searchTerm || undefined,
         });
-        // Transform posts to job format
+        // Transform posts to job format and filter by INTERNSHIP
         const posts = Array.isArray(postsResult) ? postsResult : (postsResult?.data || []);
-        return posts.map((post: any) => {
+        const internshipPosts = posts.filter((post: any) => {
+          const metadata = post.metadata || {};
+          const jobType = post.jobType || metadata.jobType;
+          return jobType === 'INTERNSHIP' || jobType === 'Internship';
+        });
+        return internshipPosts.map((post: any) => {
           // Read from top level (new structure) or metadata (backward compatibility)
           const metadata = post.metadata || {};
           return {
@@ -74,13 +80,13 @@ export default function JobsPage() {
         if (err?.response?.status === 401) {
           throw err;
         }
-        // For other errors, try the jobs API as fallback
+        // For other errors, try the internships API as fallback
         try {
-          const jobsResult = await jobsApi.getAll({
+          const internshipsResult = await internshipsApi.getAll({
             search: searchTerm || undefined,
           });
-          if (jobsResult && (Array.isArray(jobsResult) || jobsResult.data)) {
-            return jobsResult;
+          if (internshipsResult && (Array.isArray(internshipsResult) || internshipsResult.data)) {
+            return internshipsResult;
           }
         } catch (fallbackErr) {
           // If both fail, throw the original error
@@ -103,18 +109,18 @@ export default function JobsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      console.log('Deleting job with ID:', id);
-      return jobsApi.delete(id);
+      console.log('Deleting internship with ID:', id);
+      return internshipsApi.delete(id);
     },
     onMutate: async (deletedId) => {
       // Cancel any outgoing refetches to avoid overwriting optimistic update
-      await queryClient.cancelQueries({ queryKey: ['jobs', searchTerm] });
+      await queryClient.cancelQueries({ queryKey: ['internships', searchTerm] });
       
       // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData(['jobs', searchTerm]);
+      const previousJobs = queryClient.getQueryData(['internships', searchTerm]);
       
-      // Optimistically update to remove the job
-      queryClient.setQueryData(['jobs', searchTerm], (old: any) => {
+      // Optimistically update to remove the internship
+      queryClient.setQueryData(['internships', searchTerm], (old: any) => {
         if (!old) return old;
         const jobsArray = Array.isArray(old) ? old : (old.data || []);
         return jobsArray.filter((job: any) => job.id !== deletedId && job.postId !== deletedId);
@@ -124,14 +130,14 @@ export default function JobsPage() {
     },
     onSuccess: (data, deletedId) => {
       console.log('Delete successful, response:', data);
-      // Invalidate all job-related queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      // Invalidate all internship-related queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['internships'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      // Also remove the specific job from cache if it exists
-      queryClient.removeQueries({ queryKey: ['job', deletedId] });
+      // Also remove the specific internship from cache if it exists
+      queryClient.removeQueries({ queryKey: ['internship', deletedId] });
       // Force refetch to ensure we have the latest data
-      queryClient.refetchQueries({ queryKey: ['jobs', searchTerm] });
-      showToast('Job deleted successfully', 'success');
+      queryClient.refetchQueries({ queryKey: ['internships', searchTerm] });
+      showToast('Internship deleted successfully', 'success');
     },
     onError: (error: any, deletedId, context) => {
       console.error('Delete job error:', {
@@ -151,7 +157,7 @@ export default function JobsPage() {
                           error.response?.data?.error?.message ||
                           error.response?.data?.error ||
                           error.message ||
-                          'Failed to delete job. Please check the console for details.';
+                          'Failed to delete internship. Please check the console for details.';
       showToast(errorMessage, 'error');
     },
   });
@@ -182,7 +188,7 @@ export default function JobsPage() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['jobs'] })}
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['internships'] })}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     Retry
@@ -201,22 +207,22 @@ export default function JobsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Job Listings</h1>
-            <p className="text-slate-600 mt-1">Manage job postings and applications</p>
+            <h1 className="text-3xl font-bold text-slate-900">Internship Listings</h1>
+            <p className="text-slate-600 mt-1">Manage internship postings and applications</p>
           </div>
           <Button 
             className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => navigate('/jobs/create')}
+            onClick={() => navigate('/internships/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Post Job
+            Post Internship
           </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Active Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600">Active Internships</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900">{jobs.length}</div>
@@ -251,11 +257,11 @@ export default function JobsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-semibold">All Jobs</CardTitle>
-                <CardDescription>Search and manage job listings</CardDescription>
+                <CardTitle className="text-lg font-semibold">All Internships</CardTitle>
+                <CardDescription>Search and manage internship listings</CardDescription>
               </div>
               <Input
-                placeholder="Search jobs..."
+                placeholder="Search internships..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-64"
@@ -271,7 +277,7 @@ export default function JobsPage() {
               <div className="grid gap-6">
                 {jobs.length === 0 ? (
                   <div className="text-center py-12 text-slate-500">
-                    No jobs found
+                    No internships found
                   </div>
                 ) : (
                   jobs.map((job: JobPost) => {
@@ -420,7 +426,7 @@ export default function JobsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/jobs/edit/${job.id}`)}
+                                onClick={() => navigate(`/internships/edit/${job.id}`)}
                               >
                                 <Edit className="h-4 w-4 mr-1" />
                                 Edit
@@ -429,7 +435,7 @@ export default function JobsPage() {
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => {
-                                  if (confirm('Are you sure you want to delete this job?')) {
+                                  if (confirm('Are you sure you want to delete this internship?')) {
                                     const jobId = job.postId || job.id;
                                     deleteMutation.mutate(jobId);
                                   }

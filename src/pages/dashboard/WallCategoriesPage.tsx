@@ -75,9 +75,10 @@ export default function WallCategoriesPage() {
       parentCategoryId: null, // Top-level categories have null parent
       isActive: data.status === 'active',
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
-      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+    onSuccess: async () => {
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       showToast('Category created successfully', 'success');
       setIsCreateDialogOpen(false);
       setFormData({ categoryFor: '', name: '', description: '', status: 'active' });
@@ -94,9 +95,10 @@ export default function WallCategoriesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => postsApi.deleteWallCategory(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
-      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
+    onSuccess: async () => {
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       showToast('Category deleted successfully', 'success');
     },
     onError: (error: any) => {
@@ -155,11 +157,13 @@ export default function WallCategoriesPage() {
     mutationFn: async (payload: { id: string; updates: Partial<WallCategory> }) => {
       return postsApi.updateWallCategory(payload.id, payload.updates);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate and refetch to get updated counts
+      await queryClient.invalidateQueries({ queryKey: ['wall-categories'] });
+      await queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
       showToast('Category updated successfully', 'success');
       setIsEditDialogOpen(false);
       setEditingCategory(null);
-      queryClient.refetchQueries({ queryKey: ['wall-categories', 'parents'] });
     },
     onError: (error: any) => {
       const message =

@@ -7,7 +7,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
 import { Briefcase, Plus, MapPin, DollarSign, Users, Loader2, Trash2, Edit, Eye, Clock, Award, Calendar } from 'lucide-react';
-import { jobsApi, JobPost } from '../../services/api/jobs';
+import { freelancerApi } from '../../services/api/freelancer';
+import { JobPost } from '../../services/api/jobs';
 import { postsApi } from '../../services/api/posts';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../store/authStore';
@@ -25,7 +26,7 @@ const stripHtmlTags = (html: string): string => {
   }
 };
 
-export default function JobsPage() {
+export default function FreelancerPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -33,19 +34,25 @@ export default function JobsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  // Fetch jobs from posts API (since jobs are created as posts with postType: 'JOB')
+  // Fetch freelancer opportunities from posts API (filtered by jobType: FREELANCE)
   const { data: jobsData, isLoading, error } = useQuery({
-    queryKey: ['jobs', searchTerm],
+    queryKey: ['freelancer', searchTerm],
     queryFn: async () => {
       try {
-        // Use posts API with postType filter since jobs are stored as posts
+        // Use posts API with postType and jobType filter
         const postsResult = await postsApi.getAll({
           postType: 'JOB',
           search: searchTerm || undefined,
         });
-        // Transform posts to job format
+        // Transform posts to job format and filter by FREELANCE or CONTRACT
         const posts = Array.isArray(postsResult) ? postsResult : (postsResult?.data || []);
-        return posts.map((post: any) => {
+        const freelancerPosts = posts.filter((post: any) => {
+          const metadata = post.metadata || {};
+          const jobType = post.jobType || metadata.jobType;
+          return jobType === 'FREELANCE' || jobType === 'CONTRACT' || 
+                 jobType === 'Freelance' || jobType === 'Contract' || jobType === 'Contractual';
+        });
+        return freelancerPosts.map((post: any) => {
           // Read from top level (new structure) or metadata (backward compatibility)
           const metadata = post.metadata || {};
           return {
@@ -74,13 +81,13 @@ export default function JobsPage() {
         if (err?.response?.status === 401) {
           throw err;
         }
-        // For other errors, try the jobs API as fallback
+        // For other errors, try the freelancer API as fallback
         try {
-          const jobsResult = await jobsApi.getAll({
+          const freelancerResult = await freelancerApi.getAll({
             search: searchTerm || undefined,
           });
-          if (jobsResult && (Array.isArray(jobsResult) || jobsResult.data)) {
-            return jobsResult;
+          if (freelancerResult && (Array.isArray(freelancerResult) || freelancerResult.data)) {
+            return freelancerResult;
           }
         } catch (fallbackErr) {
           // If both fail, throw the original error
@@ -103,18 +110,18 @@ export default function JobsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      console.log('Deleting job with ID:', id);
-      return jobsApi.delete(id);
+      console.log('Deleting freelancer opportunity with ID:', id);
+      return freelancerApi.delete(id);
     },
     onMutate: async (deletedId) => {
       // Cancel any outgoing refetches to avoid overwriting optimistic update
-      await queryClient.cancelQueries({ queryKey: ['jobs', searchTerm] });
+      await queryClient.cancelQueries({ queryKey: ['freelancer', searchTerm] });
       
       // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData(['jobs', searchTerm]);
+      const previousJobs = queryClient.getQueryData(['freelancer', searchTerm]);
       
-      // Optimistically update to remove the job
-      queryClient.setQueryData(['jobs', searchTerm], (old: any) => {
+      // Optimistically update to remove the freelancer opportunity
+      queryClient.setQueryData(['freelancer', searchTerm], (old: any) => {
         if (!old) return old;
         const jobsArray = Array.isArray(old) ? old : (old.data || []);
         return jobsArray.filter((job: any) => job.id !== deletedId && job.postId !== deletedId);
@@ -124,14 +131,14 @@ export default function JobsPage() {
     },
     onSuccess: (data, deletedId) => {
       console.log('Delete successful, response:', data);
-      // Invalidate all job-related queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      // Invalidate all freelancer-related queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['freelancer'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      // Also remove the specific job from cache if it exists
-      queryClient.removeQueries({ queryKey: ['job', deletedId] });
+      // Also remove the specific freelancer opportunity from cache if it exists
+      queryClient.removeQueries({ queryKey: ['freelancer', deletedId] });
       // Force refetch to ensure we have the latest data
-      queryClient.refetchQueries({ queryKey: ['jobs', searchTerm] });
-      showToast('Job deleted successfully', 'success');
+      queryClient.refetchQueries({ queryKey: ['freelancer', searchTerm] });
+      showToast('Freelancer opportunity deleted successfully', 'success');
     },
     onError: (error: any, deletedId, context) => {
       console.error('Delete job error:', {
@@ -151,7 +158,7 @@ export default function JobsPage() {
                           error.response?.data?.error?.message ||
                           error.response?.data?.error ||
                           error.message ||
-                          'Failed to delete job. Please check the console for details.';
+                          'Failed to delete freelancer opportunity. Please check the console for details.';
       showToast(errorMessage, 'error');
     },
   });
@@ -182,7 +189,7 @@ export default function JobsPage() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['jobs'] })}
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['freelancer'] })}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     Retry
@@ -201,22 +208,22 @@ export default function JobsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Job Listings</h1>
-            <p className="text-slate-600 mt-1">Manage job postings and applications</p>
+            <h1 className="text-3xl font-bold text-slate-900">Freelancer Opportunities</h1>
+            <p className="text-slate-600 mt-1">Manage freelancer postings and applications</p>
           </div>
           <Button 
             className="bg-gradient-to-r from-blue-600 to-indigo-600"
-            onClick={() => navigate('/jobs/create')}
+            onClick={() => navigate('/freelancer/create')}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Post Job
+            Post Opportunity
           </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Active Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600">Active Opportunities</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900">{jobs.length}</div>
@@ -251,11 +258,11 @@ export default function JobsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-semibold">All Jobs</CardTitle>
-                <CardDescription>Search and manage job listings</CardDescription>
+                <CardTitle className="text-lg font-semibold">All Freelancer Opportunities</CardTitle>
+                <CardDescription>Search and manage freelancer listings</CardDescription>
               </div>
               <Input
-                placeholder="Search jobs..."
+                placeholder="Search opportunities..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-64"
@@ -271,7 +278,7 @@ export default function JobsPage() {
               <div className="grid gap-6">
                 {jobs.length === 0 ? (
                   <div className="text-center py-12 text-slate-500">
-                    No jobs found
+                    No freelancer opportunities found
                   </div>
                 ) : (
                   jobs.map((job: JobPost) => {
@@ -280,7 +287,11 @@ export default function JobsPage() {
                     const companyName = post.companyName || metadata.companyName || job.company?.companyName || 'Company';
                     const industry = post.industry || metadata.industry;
                     const location = job.location || post.jobLocation || metadata.jobLocation || metadata.location;
-                    const jobType = post.jobType || metadata.jobType;
+                    let jobType = post.jobType || metadata.jobType;
+                    // Convert CONTRACT/Contract to Contractual for display
+                    if (jobType === 'CONTRACT' || jobType === 'Contract') {
+                      jobType = 'Contractual';
+                    }
                     const jobFunction = post.jobFunction || metadata.jobFunction;
                     const experience = job.experience || post.experience || metadata.experience;
                     const yearlySalary = metadata.yearlySalary;
@@ -420,7 +431,7 @@ export default function JobsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/jobs/edit/${job.id}`)}
+                                onClick={() => navigate(`/freelancer/edit/${job.id}`)}
                               >
                                 <Edit className="h-4 w-4 mr-1" />
                                 Edit
@@ -429,7 +440,7 @@ export default function JobsPage() {
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => {
-                                  if (confirm('Are you sure you want to delete this job?')) {
+                                  if (confirm('Are you sure you want to delete this freelancer opportunity?')) {
                                     const jobId = job.postId || job.id;
                                     deleteMutation.mutate(jobId);
                                   }

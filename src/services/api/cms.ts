@@ -44,7 +44,15 @@ export const cmsApi = {
   // Current Affairs
   getCurrentAffairs: async (params?: any) => {
     const response = await apiClient.get('/admin/cms/current-affairs', { params });
-    return response.data.data || response.data;
+    // Backend returns: { data: { data: [...], pagination: {...} } } or { data: [...], pagination: {...} }
+    // Preserve the full structure including pagination
+    if (response.data?.data && (response.data?.pagination || Array.isArray(response.data.data))) {
+      return response.data; // Return { data: [...], pagination: {...} }
+    }
+    if (response.data?.data) {
+      return response.data.data; // Fallback for array-only responses
+    }
+    return response.data;
   },
   getCurrentAffairById: async (id: string) => {
     const response = await apiClient.get(`/admin/cms/current-affairs/${id}`);
@@ -66,7 +74,15 @@ export const cmsApi = {
   // General Knowledge
   getGeneralKnowledge: async (params?: any) => {
     const response = await apiClient.get('/admin/cms/general-knowledge', { params });
-    return response.data.data || response.data;
+    // Backend returns: { data: { data: [...], pagination: {...} } } or { data: [...], pagination: {...} }
+    // Preserve the full structure including pagination
+    if (response.data?.data && (response.data?.pagination || Array.isArray(response.data.data))) {
+      return response.data; // Return { data: [...], pagination: {...} }
+    }
+    if (response.data?.data) {
+      return response.data.data; // Fallback for array-only responses
+    }
+    return response.data;
   },
   getGeneralKnowledgeById: async (id: string) => {
     const response = await apiClient.get(`/admin/cms/general-knowledge/${id}`);
@@ -112,21 +128,31 @@ export const cmsApi = {
   },
 
   // Personality Quiz
-  getPersonalityQuestions: async (params?: { includeInactive?: boolean }) => {
-    const response = await apiClient.get('/admin/cms/personality/questions', { 
-      params: params?.includeInactive ? { includeInactive: true } : {}
-    });
-    // Backend returns array directly or wrapped in { data: [...] }
+  getPersonalityQuestions: async (params?: { includeInactive?: boolean; page?: number; limit?: number }) => {
+    const queryParams: any = {};
+    if (params?.includeInactive) {
+      queryParams.includeInactive = true;
+    }
+    if (params?.page) {
+      queryParams.page = params.page;
+    }
+    if (params?.limit) {
+      queryParams.limit = params.limit;
+    }
+    
+    const response = await apiClient.get('/admin/cms/personality/questions', { params: queryParams });
+    
+    // Backend returns array directly or wrapped in { data: [...], pagination: {...} }
     // Handle both cases
     if (Array.isArray(response.data)) {
       return response.data;
     }
     if (response.data?.data && Array.isArray(response.data.data)) {
-      return response.data.data;
+      return response.data;
     }
     // Fallback: return empty array if structure is unexpected
     console.warn('Unexpected response structure for personality questions:', response.data);
-    return [];
+    return { data: [], pagination: { page: 1, limit: params?.limit || 20, total: 0, totalPages: 0 } };
   },
   createPersonalityQuestion: async (data: any) => {
     const response = await apiClient.post('/admin/cms/personality/questions', data);
@@ -151,13 +177,49 @@ export const cmsApi = {
     return response.data.data || response.data;
   },
 
-  // College Events
+  // College Events (Admin endpoints)
   getCollegeEvents: async (params?: any) => {
     const response = await apiClient.get('/admin/cms/college-events', { params });
     return response.data.data || response.data;
   },
   createCollegeEvent: async (data: any) => {
     const response = await apiClient.post('/admin/cms/college-events', data);
+    return response.data.data || response.data;
+  },
+  updateCollegeEvent: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/cms/college-events/${id}`, data);
+    return response.data.data || response.data;
+  },
+  deleteCollegeEvent: async (id: string) => {
+    const response = await apiClient.delete(`/admin/cms/college-events/${id}`);
+    return response.data;
+  },
+
+  // College Events (Public endpoints)
+  getPublicCollegeEvents: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+    collegeId?: string;
+    isPublished?: boolean;
+  }) => {
+    const response = await apiClient.get('/cms/college-events', { params });
+    // Handle pagination response structure
+    if (response.data?.data && response.data?.pagination) {
+      return response.data; // Return { data: [...], pagination: {...} }
+    }
+    if (response.data?.data) {
+      return response.data.data; // Fallback for array-only responses
+    }
+    return response.data;
+  },
+  getPublicCollegeEventById: async (id: string) => {
+    const response = await apiClient.get(`/cms/college-events/${id}`);
+    return response.data.data || response.data;
+  },
+  markEventInterested: async (id: string) => {
+    const response = await apiClient.post(`/cms/college-events/${id}/interested`);
     return response.data.data || response.data;
   },
 

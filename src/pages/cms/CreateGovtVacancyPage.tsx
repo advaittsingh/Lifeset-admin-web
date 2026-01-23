@@ -5,13 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { ArrowLeft, Save, Eye, Briefcase, Loader2, Image as ImageIcon, Calendar, Send, Cloud, CloudOff } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Briefcase, Loader2, Image as ImageIcon, Calendar, Send, Cloud, CloudOff, Trash2, Copy } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi } from '../../services/api/cms';
 import { institutesApi } from '../../services/api/institutes';
+import { notificationsApi } from '../../services/api/notifications';
+import { notificationJobsApi } from '../../services/api/notification-jobs';
 import { useAutoSave } from '../../hooks/useAutoSave';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 const EXAM_LEVELS = ['8th Pass', '10th', '12th', 'Diploma', 'UG', 'PG', 'Others'];
 const LANGUAGES = ['English', 'Hindi'];
@@ -23,6 +25,7 @@ export default function CreateGovtVacancyPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [formData, setFormData] = useState({
     contentLanguage: 'English',
     mainCourseCategoryId: '',
@@ -44,7 +47,11 @@ export default function CreateGovtVacancyPage() {
     eligibility: '',
     ageLimit: '',
     description: '',
+    applicationLink: '',
     isPublished: false,
+    sendNotification: false,
+    notificationTime: '', // Clock time for notification
+    clonedFromId: null as string | null,
   });
 
   // Fetch course categories (Main Course Category)
@@ -64,11 +71,11 @@ export default function CreateGovtVacancyPage() {
 
   const awardedList = Array.isArray(awardedData) ? awardedData : (awardedData?.data || []);
 
-  // Fetch specialisations (Specialization Category) based on selected course category
+  // Fetch specialisations (Specialization Category) based on selected award category
   const { data: specialisationData } = useQuery({
-    queryKey: ['specialisations', formData.mainCourseCategoryId],
-    queryFn: () => institutesApi.getSpecialisationData(formData.mainCourseCategoryId || undefined),
-    enabled: !!formData.mainCourseCategoryId,
+    queryKey: ['specialisations', formData.awardCategoryId],
+    queryFn: () => institutesApi.getSpecialisationData(formData.awardCategoryId || undefined),
+    enabled: !!formData.awardCategoryId,
   });
 
   const specialisations = Array.isArray(specialisationData) ? specialisationData : (specialisationData?.data || []);
@@ -83,6 +90,16 @@ export default function CreateGovtVacancyPage() {
       }));
     }
   }, [formData.mainCourseCategoryId]);
+
+  // Reset specialisation when award category changes
+  useEffect(() => {
+    if (formData.awardCategoryId) {
+      setFormData(prev => ({
+        ...prev,
+        specialisationCategoryId: '',
+      }));
+    }
+  }, [formData.awardCategoryId]);
 
   // Auto-save functionality (only in create mode)
   const autoSaveKey = `cms-draft-govt-vacancy-${id || 'new'}`;
@@ -105,18 +122,40 @@ export default function CreateGovtVacancyPage() {
 
   // Restore draft on mount if in create mode
   useEffect(() => {
-    if (!isEditMode && hasDraft) {
-      const restored = restoreDraft();
-      if (restored && !formData.nameOfPost && !formData.description) {
-        if (window.confirm('A draft was found. Would you like to restore it?')) {
-          if (restored.organisationImagePreview && restored.organisationImagePreview.startsWith('data:')) {
-            setFormData(restored);
+    if (!isEditMode) {
+      // Check for cloned data first
+      const cloneKeys = Object.keys(localStorage).filter(key => key.startsWith('govt-vacancy-clone-'));
+      if (cloneKeys.length > 0) {
+        const latestCloneKey = cloneKeys.sort().reverse()[0];
+        const clonedData = JSON.parse(localStorage.getItem(latestCloneKey) || '{}');
+        if (clonedData && clonedData.nameOfPost) {
+          localStorage.removeItem(latestCloneKey);
+          setFormData({
+            ...clonedData,
+            clonedFromId: null, // Clear clone tracking
+            isPublished: false, // Reset published status
+            organisationImageFile: null, // Clear file objects
+            organisationImagePreview: clonedData.organisationImagePreview || null,
+          });
+          showToast('Vacancy data loaded. Review and create a new vacancy.', 'info');
+          return;
+        }
+      }
+      
+      // Check for regular draft
+      if (hasDraft) {
+        const restored = restoreDraft();
+        if (restored && !formData.nameOfPost && !formData.description) {
+          if (window.confirm('A draft was found. Would you like to restore it?')) {
+            if (restored.organisationImagePreview && restored.organisationImagePreview.startsWith('data:')) {
+              setFormData(restored);
+            } else {
+              setFormData({ ...restored, organisationImageFile: null, organisationImagePreview: null });
+            }
+            showToast('Draft restored', 'success');
           } else {
-            setFormData({ ...restored, organisationImageFile: null, organisationImagePreview: null });
+            clearDraft();
           }
-          showToast('Draft restored', 'success');
-        } else {
-          clearDraft();
         }
       }
     }
@@ -154,6 +193,8 @@ export default function CreateGovtVacancyPage() {
         mainCourseCategoryId: '',
         awardCategoryId: '',
         specialisationCategoryId: '',
+        applicationLink: '',
+        clonedFromId: null,
         examLevel: '',
         examName: '',
         organisationImageUrl: '',
@@ -171,6 +212,8 @@ export default function CreateGovtVacancyPage() {
         ageLimit: '',
         description: '',
         isPublished: false,
+        sendNotification: false,
+        notificationTime: '',
       });
     } else if (!isEditMode) {
       prevIdRef.current = undefined;
@@ -205,7 +248,11 @@ export default function CreateGovtVacancyPage() {
         eligibility: item.eligibility || '',
         ageLimit: item.ageLimit || '',
         description: item.description || '',
+        applicationLink: item.applicationLink || '',
         isPublished: item.isPublished || false,
+        sendNotification: false,
+        notificationTime: '',
+        clonedFromId: null,
       };
 
       console.log('Setting form data:', formDataToSet);
@@ -294,6 +341,7 @@ export default function CreateGovtVacancyPage() {
         eligibility: cleanValue(data.eligibility),
         ageLimit: cleanValue(data.ageLimit),
         description: data.description,
+        applicationLink: cleanValue(data.applicationLink),
         isPublished: data.isPublished,
       };
 
@@ -351,6 +399,7 @@ export default function CreateGovtVacancyPage() {
         eligibility: cleanValue(data.eligibility),
         ageLimit: cleanValue(data.ageLimit),
         description: data.description,
+        applicationLink: cleanValue(data.applicationLink),
         isPublished: data.isPublished,
       };
 
@@ -362,10 +411,80 @@ export default function CreateGovtVacancyPage() {
 
       return cmsApi.updateGovtVacancy(id!, payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['govt-vacancies'] });
       queryClient.invalidateQueries({ queryKey: ['govt-vacancy', id] });
       showToast('Government vacancy updated successfully', 'success');
+      
+      // Send notification if requested
+      if (formData.sendNotification && id) {
+        try {
+          const imageUrl = formData.organisationImagePreview || formData.organisationImageUrl;
+          
+          // Strip HTML tags and truncate description for notification body
+          const stripHtml = (html: string) => {
+            if (!html) return '';
+            const tmp = document.createElement('DIV');
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || '';
+          };
+          const plainTextDescription = stripHtml(formData.description || 'Check out updated government vacancy opportunities!');
+          const notificationBody = plainTextDescription.length > 200 
+            ? plainTextDescription.substring(0, 200) + '...' 
+            : plainTextDescription;
+          
+          // Check if notificationTime is provided for scheduled notification
+          if (formData.notificationTime && formData.notificationTime.trim()) {
+            // Create scheduled notification job
+            const [hours, minutes] = formData.notificationTime.split(':');
+            const scheduledDate = new Date();
+            scheduledDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            
+            // If the time has passed today, schedule for tomorrow
+            if (scheduledDate < new Date()) {
+              scheduledDate.setDate(scheduledDate.getDate() + 1);
+            }
+            
+            await notificationJobsApi.create({
+              messageType: 'VACANCY',
+              title: formData.nameOfPost || 'Updated Government Vacancy',
+              content: notificationBody || 'Check out updated government vacancy opportunities!',
+              image: imageUrl || undefined,
+              redirectionLink: `https://lifeset.app/govt-vacancies/${id}`,
+              scheduledAt: scheduledDate.toISOString(),
+              language: 'ALL',
+              frequency: 'ONCE',
+            });
+            showToast(`Notification scheduled for ${formData.notificationTime}`, 'success');
+          } else {
+            // Send immediate notification
+            await notificationsApi.send({
+              userIds: null, // Broadcast to all users
+              notification: {
+                title: formData.nameOfPost || 'Updated Government Vacancy',
+                body: notificationBody || 'Check out updated government vacancy opportunities!',
+              },
+              redirectUrl: `https://lifeset.app/govt-vacancies/${id}`,
+              imageUrl: imageUrl || undefined,
+              data: {
+                vacancyId: id,
+                type: 'govt-vacancy',
+              },
+            });
+            showToast('Notification sent successfully', 'success');
+          }
+        } catch (error: any) {
+          console.error('Failed to send notification:', error);
+          const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send notification';
+          // Check if it's a "no tokens" error - this is expected if users haven't registered tokens yet
+          if (errorMessage.includes('No tokens found') || errorMessage.includes('no tokens')) {
+            showToast('Vacancy updated. Note: No users have registered push tokens yet.', 'warning');
+          } else {
+            showToast(`Vacancy updated but notification failed: ${errorMessage}`, 'error');
+          }
+        }
+      }
+      
       navigate('/cms/govt-vacancies');
     },
     onError: (error: any) => {
@@ -378,7 +497,20 @@ export default function CreateGovtVacancyPage() {
     },
   });
 
-  const handlePublish = () => {
+  const deleteMutation = useMutation({
+    mutationFn: (vacancyId: string) => cmsApi.deleteGovtVacancy(vacancyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['govt-vacancies'] });
+      showToast('Government vacancy deleted successfully', 'success');
+      navigate('/cms/govt-vacancies');
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete vacancy';
+      showToast(String(errorMessage), 'error');
+    },
+  });
+
+  const handleSave = (publish: boolean = false) => {
     if (!formData.nameOfPost.trim()) {
       showToast('Please enter name of post', 'error');
       return;
@@ -400,12 +532,16 @@ export default function CreateGovtVacancyPage() {
       return;
     }
 
-    const publishData = { ...formData, isPublished: true };
+    const saveData = { ...formData, isPublished: publish };
     if (isEditMode) {
-      updateMutation.mutate(publishData);
+      updateMutation.mutate(saveData);
     } else {
-      createMutation.mutate(publishData);
+      createMutation.mutate(saveData);
     }
+  };
+
+  const handlePublish = () => {
+    handleSave(true);
   };
 
   if (isLoadingItem && isEditMode) {
@@ -420,15 +556,6 @@ export default function CreateGovtVacancyPage() {
 
   return (
     <>
-      <style>{`
-        .description-editor .ql-editor {
-          padding: 0.5rem !important;
-          min-height: 60px !important;
-        }
-        .description-editor .ql-container {
-          min-height: 60px !important;
-        }
-      `}</style>
       <AdminLayout>
         <div className="space-y-6">
           {/* Auto-save indicator */}
@@ -475,39 +602,102 @@ export default function CreateGovtVacancyPage() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handlePublish}
-              disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
-              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
+            <div className="flex items-center gap-2">
+              {isEditMode && (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Publish Vacancy
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this vacancy? This action cannot be undone.')) {
+                        deleteMutation.mutate(id!);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Delete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Clone: navigate to create page with cloned data
+                      const clonedData = { ...formData, clonedFromId: id };
+                      localStorage.setItem(`govt-vacancy-clone-${Date.now()}`, JSON.stringify(clonedData));
+                      navigate('/cms/govt-vacancies/create');
+                      showToast('Vacancy data copied. Fill in the form to create a new vacancy.', 'info');
+                    }}
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Clone
+                  </Button>
                 </>
               )}
-            </Button>
+              <Button
+                onClick={() => {
+                  // Save without publishing
+                  handleSave(false);
+                }}
+                disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
+                variant="outline"
+                className="border-slate-300"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => {
+                  // Save and publish
+                  handlePublish();
+                }}
+                disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
+                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold shadow-lg"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Publish
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
-          {/* Main Content - Full Width Form */}
-          <Card className="border-0 shadow-xl bg-white">
-            <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-blue-50/50 to-white">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-md">
-                  <Briefcase className="h-5 w-5 text-white" />
+          {/* Main Content - Side by Side */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left Side - Form */}
+            <Card className="border-0 shadow-xl bg-white">
+              <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-blue-50/50 to-white">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-md">
+                    <Briefcase className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-slate-900">Vacancy Details</CardTitle>
+                    <CardDescription className="text-slate-600">Enter government vacancy information</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-slate-900">Vacancy Details</CardTitle>
-                  <CardDescription className="text-slate-600">Enter government vacancy information</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-8">
+              </CardHeader>
+              <CardContent className="pt-6 space-y-8">
               {/* Section 1: Basic Information */}
               <div className="space-y-4 pb-6 border-b border-slate-200">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -580,9 +770,9 @@ export default function CreateGovtVacancyPage() {
                     <label className="text-sm font-semibold text-slate-700 mb-2 block">Specialization Category</label>
                     <select
                       value={formData.specialisationCategoryId}
-                      onChange={(e) => setFormData({ ...formData, specialisationCategoryId: e.target.value })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, specialisationCategoryId: e.target.value }))}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      disabled={!formData.mainCourseCategoryId || specialisations.length === 0}
+                      disabled={!formData.awardCategoryId || specialisations.length === 0}
                     >
                       <option value="">Select Specialization</option>
                       {specialisations.map((spec: any) => (
@@ -846,15 +1036,12 @@ export default function CreateGovtVacancyPage() {
                 {/* Description */}
                 <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block">Description *</label>
-                  <RichTextEditor
-                    key={`description-${dataLoadedKey}`}
+                  <Textarea
+                    placeholder="Write a detailed description..."
                     value={formData.description}
-                    onChange={(value) => {
-                      setFormData({ ...formData, description: value });
-                    }}
-                    placeholder="Write a detailed description with full formatting options..."
-                    minHeight="200px"
-                    className="mt-1 description-editor"
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="mt-1 min-h-[200px]"
+                    rows={10}
                   />
                   <div className="mt-2 flex items-center justify-between">
                     <p className={`text-xs ${isDescriptionValid ? 'text-emerald-600' : 'text-slate-600'}`}>
@@ -865,9 +1052,474 @@ export default function CreateGovtVacancyPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Application Link */}
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-2 block">Application Link *</label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/apply"
+                    value={formData.applicationLink}
+                    onChange={(e) => setFormData({ ...formData, applicationLink: e.target.value })}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    This link will be used when users click the "Apply" button. Must be a valid URL.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Right Side - Live Preview */}
+          <Card className="border-0 shadow-xl bg-white sticky top-6">
+            <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-emerald-50/50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">
+                  <Eye className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900">Preview</CardTitle>
+                  <CardDescription className="text-slate-600">See how your vacancy will appear</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {/* Preview Container */}
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border-2 border-dashed border-slate-300 min-h-[400px] max-h-[80vh] overflow-y-auto">
+                  {formData.nameOfPost || formData.description ? (
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 p-6 space-y-4">
+                      {/* Organisation Image */}
+                      {(formData.organisationImagePreview || formData.organisationImageUrl) && (
+                        <div className="w-full">
+                          <img
+                            src={formData.organisationImagePreview || formData.organisationImageUrl}
+                            alt="Organisation"
+                            className="w-full h-48 object-cover rounded-lg border-2 border-slate-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Name of Post */}
+                      {formData.nameOfPost && (
+                        <div>
+                          <h3 className="text-2xl font-bold text-slate-900 mb-2">{formData.nameOfPost}</h3>
+                        </div>
+                      )}
+
+                      {/* Basic Information */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {formData.examLevel && (
+                          <div className="bg-slate-50 p-2 rounded-lg">
+                            <p className="text-xs text-slate-600 mb-1">Exam Level</p>
+                            <p className="text-sm font-semibold text-slate-900">{formData.examLevel}</p>
+                          </div>
+                        )}
+                        {formData.examName && (
+                          <div className="bg-slate-50 p-2 rounded-lg">
+                            <p className="text-xs text-slate-600 mb-1">Exam Name</p>
+                            <p className="text-sm font-semibold text-slate-900">{formData.examName}</p>
+                          </div>
+                        )}
+                        {formData.contentLanguage && (
+                          <div className="bg-slate-50 p-2 rounded-lg">
+                            <p className="text-xs text-slate-600 mb-1">Language</p>
+                            <p className="text-sm font-semibold text-slate-900">{formData.contentLanguage}</p>
+                          </div>
+                        )}
+                        {formData.vacanciesSeat && (
+                          <div className="bg-slate-50 p-2 rounded-lg">
+                            <p className="text-xs text-slate-600 mb-1">Vacancies / Seats</p>
+                            <p className="text-sm font-semibold text-slate-900">{formData.vacanciesSeat}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Important Dates */}
+                      {(formData.firstAnnouncementDate || formData.applicationSubmissionLastDate || formData.examDate) && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-blue-600" />
+                            Important Dates
+                          </h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {formData.firstAnnouncementDate && (
+                              <div className="bg-blue-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">1st Announcement Date</p>
+                                <p className="text-xs font-semibold text-slate-900">
+                                  {new Date(formData.firstAnnouncementDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </p>
+                              </div>
+                            )}
+                            {formData.applicationSubmissionLastDate && (
+                              <div className="bg-red-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Application Submission Last Date</p>
+                                <p className="text-xs font-semibold text-slate-900">
+                                  {new Date(formData.applicationSubmissionLastDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </p>
+                              </div>
+                            )}
+                            {formData.examDate && (
+                              <div className="bg-green-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Exam Date</p>
+                                <p className="text-xs font-semibold text-slate-900">{formData.examDate}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Exam Details */}
+                      {(formData.examFees || formData.evaluationExamPattern || formData.cutoff) && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-blue-600" />
+                            Exam Details
+                          </h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {formData.examFees && (
+                              <div className="bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Exam Fees</p>
+                                <p className="text-xs font-semibold text-slate-900">{formData.examFees}</p>
+                              </div>
+                            )}
+                            {formData.evaluationExamPattern && (
+                              <div className="bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Evaluation/Exam Pattern</p>
+                                <p className="text-xs font-semibold text-slate-900">{formData.evaluationExamPattern}</p>
+                              </div>
+                            )}
+                            {formData.cutoff && (
+                              <div className="bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Cutoff</p>
+                                <p className="text-xs font-semibold text-slate-900">{formData.cutoff}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Eligibility Criteria */}
+                      {(formData.eligibility || formData.ageLimit) && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-blue-600" />
+                            Eligibility Criteria
+                          </h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {formData.eligibility && (
+                              <div className="bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Eligibility</p>
+                                <p className="text-xs text-slate-900 whitespace-pre-wrap line-clamp-3">{formData.eligibility}</p>
+                              </div>
+                            )}
+                            {formData.ageLimit && (
+                              <div className="bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 mb-1">Age Limit</p>
+                                <p className="text-xs text-slate-900 whitespace-pre-wrap line-clamp-3">{formData.ageLimit}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Categories */}
+                      {(formData.mainCourseCategoryId || formData.awardCategoryId || formData.specialisationCategoryId) && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2">Categories</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {formData.mainCourseCategoryId && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                                {categories.find((cat: any) => cat.id === formData.mainCourseCategoryId)?.name || 'Main Category'}
+                              </span>
+                            )}
+                            {formData.awardCategoryId && (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                {awardedList.find((award: any) => award.id === formData.awardCategoryId)?.name || 'Award Category'}
+                              </span>
+                            )}
+                            {formData.specialisationCategoryId && (
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
+                                {specialisations.find((spec: any) => spec.id === formData.specialisationCategoryId)?.name || 'Specialization'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Description - Limited to 2-3 lines */}
+                      {formData.description && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2">Description</h4>
+                          <p className="text-xs text-slate-600 line-clamp-3 whitespace-pre-wrap">
+                            {formData.description}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Application Link */}
+                      {formData.applicationLink && (
+                        <div className="pt-3 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-900 mb-2">Application Link</h4>
+                          <a
+                            href={formData.applicationLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-700 underline truncate block"
+                          >
+                            {formData.applicationLink}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Briefcase className="h-12 w-12 text-slate-400 mx-auto mb-2" />
+                        <p className="text-sm text-slate-500 font-medium">No vacancy details entered</p>
+                        <p className="text-xs text-slate-400 mt-1">Fill in the form to see preview</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Publish Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePublish}
+                    disabled={createMutation.isPending || updateMutation.isPending || !isDescriptionValid}
+                    className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
+                  >
+                    {(createMutation.isPending || updateMutation.isPending) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Publish Vacancy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Preview Dialog */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Government Vacancy Preview
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 mt-4">
+              {/* Organisation Image */}
+              {(formData.organisationImagePreview || formData.organisationImageUrl) && (
+                <div className="w-full">
+                  <img
+                    src={formData.organisationImagePreview || formData.organisationImageUrl}
+                    alt="Organisation"
+                    className="w-full max-w-md h-48 object-cover rounded-lg border-2 border-slate-200 mx-auto"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Name of Post */}
+              {formData.nameOfPost && (
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">{formData.nameOfPost}</h2>
+                </div>
+              )}
+
+              {/* Basic Information */}
+              <div className="grid grid-cols-2 gap-4">
+                {formData.examLevel && (
+                  <div className="bg-slate-50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Exam Level</p>
+                    <p className="text-sm font-semibold text-slate-900">{formData.examLevel}</p>
+                  </div>
+                )}
+                {formData.examName && (
+                  <div className="bg-slate-50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Exam Name</p>
+                    <p className="text-sm font-semibold text-slate-900">{formData.examName}</p>
+                  </div>
+                )}
+                {formData.contentLanguage && (
+                  <div className="bg-slate-50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Language</p>
+                    <p className="text-sm font-semibold text-slate-900">{formData.contentLanguage}</p>
+                  </div>
+                )}
+                {formData.vacanciesSeat && (
+                  <div className="bg-slate-50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Vacancies / Seats</p>
+                    <p className="text-sm font-semibold text-slate-900">{formData.vacanciesSeat}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Important Dates */}
+              {(formData.firstAnnouncementDate || formData.applicationSubmissionLastDate || formData.examDate) && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                    Important Dates
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.firstAnnouncementDate && (
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">1st Announcement Date</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {new Date(formData.firstAnnouncementDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {formData.applicationSubmissionLastDate && (
+                      <div className="bg-red-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Application Submission Last Date</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {new Date(formData.applicationSubmissionLastDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {formData.examDate && (
+                      <div className="bg-green-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Exam Date</p>
+                        <p className="text-sm font-semibold text-slate-900">{formData.examDate}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Exam Details */}
+              {(formData.examFees || formData.evaluationExamPattern || formData.cutoff) && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-blue-600" />
+                    Exam Details
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.examFees && (
+                      <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Exam Fees</p>
+                        <p className="text-sm font-semibold text-slate-900">{formData.examFees}</p>
+                      </div>
+                    )}
+                    {formData.evaluationExamPattern && (
+                      <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Evaluation/Exam Pattern</p>
+                        <p className="text-sm font-semibold text-slate-900">{formData.evaluationExamPattern}</p>
+                      </div>
+                    )}
+                    {formData.cutoff && (
+                      <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Cutoff</p>
+                        <p className="text-sm font-semibold text-slate-900">{formData.cutoff}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Eligibility Criteria */}
+              {(formData.eligibility || formData.ageLimit) && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-blue-600" />
+                    Eligibility Criteria
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.eligibility && (
+                      <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Eligibility</p>
+                        <p className="text-sm text-slate-900 whitespace-pre-wrap">{formData.eligibility}</p>
+                      </div>
+                    )}
+                    {formData.ageLimit && (
+                      <div className="bg-slate-50 p-3 rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Age Limit</p>
+                        <p className="text-sm text-slate-900 whitespace-pre-wrap">{formData.ageLimit}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Categories */}
+              {(formData.mainCourseCategoryId || formData.awardCategoryId || formData.specialisationCategoryId) && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3">Categories</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.mainCourseCategoryId && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                        {categories.find((cat: any) => cat.id === formData.mainCourseCategoryId)?.name || 'Main Category'}
+                      </span>
+                    )}
+                    {formData.awardCategoryId && (
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                        {awardedList.find((award: any) => award.id === formData.awardCategoryId)?.name || 'Award Category'}
+                      </span>
+                    )}
+                    {formData.specialisationCategoryId && (
+                      <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
+                        {specialisations.find((spec: any) => spec.id === formData.specialisationCategoryId)?.name || 'Specialization'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {formData.description && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3">Description</h3>
+                  <div
+                    className="prose prose-sm max-w-none bg-slate-50 p-4 rounded-lg"
+                    dangerouslySetInnerHTML={{ __html: formData.description }}
+                  />
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!formData.nameOfPost && !formData.description && (
+                <div className="text-center py-8 text-slate-500">
+                  <Briefcase className="h-12 w-12 mx-auto mb-3 text-slate-400" />
+                  <p>No content to preview. Please fill in the form fields.</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         </div>
       </AdminLayout>
     </>

@@ -18,6 +18,8 @@ export interface NotificationJob {
   nextSendAt?: string;
   totalSent: number;
   totalFailed: number;
+  userIds?: string[];
+  phoneNumbers?: string[];
   filterConditions?: any;
   _count?: {
     notifications: number;
@@ -51,7 +53,8 @@ export const notificationJobsApi = {
   },
 
   create: async (data: {
-    messageType: string;
+    messageType?: string; // Optional, defaults to 'admin' for backend compatibility
+    notificationType?: string;
     title: string;
     content: string;
     image?: string;
@@ -59,6 +62,8 @@ export const notificationJobsApi = {
     scheduledAt: string; // ISO date string
     language: 'ALL' | 'ENGLISH' | 'HINDI';
     frequency: 'ONCE' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+    userIds?: string[] | null;
+    phoneNumbers?: string[];
     filterConditions?: any;
   }) => {
     const response = await apiClient.post('/admin/notification-jobs', data);
@@ -66,7 +71,8 @@ export const notificationJobsApi = {
   },
 
   update: async (id: string, data: Partial<{
-    messageType: string;
+    messageType?: string; // Optional, defaults to 'admin' for backend compatibility
+    notificationType?: string;
     title: string;
     content: string;
     image: string;
@@ -74,6 +80,8 @@ export const notificationJobsApi = {
     scheduledAt: string;
     language: 'ALL' | 'ENGLISH' | 'HINDI';
     frequency: 'ONCE' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+    userIds: string[] | null;
+    phoneNumbers: string[];
     filterConditions: any;
     status: string;
   }>) => {

@@ -17,6 +17,10 @@ import UsersPage from './pages/users/UsersPage';
 import PostsPage from './pages/posts/PostsPage';
 import JobsPage from './pages/jobs/JobsPage';
 import CreateJobPage from './pages/jobs/CreateJobPage';
+import InternshipsPage from './pages/internships/InternshipsPage';
+import CreateInternshipPage from './pages/internships/CreateInternshipPage';
+import FreelancerPage from './pages/freelancer/FreelancerPage';
+import CreateFreelancerPage from './pages/freelancer/CreateFreelancerPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import CreateNotificationJobPage from './pages/notifications/CreateNotificationJobPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
@@ -40,6 +44,7 @@ import CreateKnowYourselfPage from './pages/cms/CreateKnowYourselfPage';
 import StudentsCommunityPage from './pages/cms/StudentsCommunityPage';
 import GovtVacanciesPage from './pages/cms/GovtVacanciesPage';
 import CreateGovtVacancyPage from './pages/cms/CreateGovtVacancyPage';
+import DemoVideosPage from './pages/cms/DemoVideosPage';
 
 // Institute Pages
 import CourseMasterPage from './pages/institutes/CourseMasterPage';
@@ -276,6 +281,54 @@ export default function App() {
           }
         />
         <Route
+          path="/internships"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <InternshipsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/internships/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateInternshipPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/internships/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateInternshipPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freelancer"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <FreelancerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freelancer/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateFreelancerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/freelancer/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateFreelancerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/notifications"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
@@ -502,6 +555,14 @@ export default function App() {
           }
         />
         <Route
+          path="/cms/demo-videos"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <DemoVideosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/cms/college-events/edit/:id"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
@@ -577,6 +638,14 @@ export default function App() {
         />
         <Route
           path="/institutes/:id/courses/create"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <CreateCoursePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/institutes/:id/courses/edit/:courseId"
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
               <CreateCoursePage />

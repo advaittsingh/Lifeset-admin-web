@@ -46,17 +46,62 @@ export default function CurrentAffairsPage() {
           page,
           limit,
         });
+        
+        console.log('Current Affairs API Response (raw):', result);
+        console.log('Current Affairs API Response (type):', typeof result, Array.isArray(result));
+        
         // Handle different response structures
-        if (Array.isArray(result)) {
-          return { data: result, pagination: { page, limit, total: result.length, totalPages: 1 } };
-        }
-        if (result?.data && Array.isArray(result.data)) {
-          return result;
-        }
-        // If result is an object with nested data
+        // Backend should return: { data: [...], pagination: { page, limit, total, totalPages } }
         if (result && typeof result === 'object' && !Array.isArray(result)) {
-          return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+          // Check if result has data and pagination
+          if (result.data && Array.isArray(result.data) && result.pagination) {
+            const paginationData = result.pagination;
+            console.log('Found pagination in response:', paginationData);
+            return {
+              data: result.data,
+              pagination: {
+                page: paginationData.page !== undefined ? paginationData.page : page,
+                limit: paginationData.limit !== undefined ? paginationData.limit : limit,
+                total: paginationData.total !== undefined ? paginationData.total : 0,
+                totalPages: paginationData.totalPages !== undefined 
+                  ? paginationData.totalPages 
+                  : (paginationData.total !== undefined 
+                    ? Math.ceil(paginationData.total / (paginationData.limit || limit))
+                    : 0)
+              }
+            };
+          }
+          
+          // If result has data array but no pagination
+          if (result.data && Array.isArray(result.data)) {
+            console.warn('Response has data but no pagination object');
+            return { 
+              data: result.data, 
+              pagination: { 
+                page: page, 
+                limit: limit, 
+                total: result.data.length, 
+                totalPages: Math.ceil(result.data.length / limit) 
+              } 
+            };
+          }
         }
+        
+        // If backend returns array directly (shouldn't happen with pagination)
+        if (Array.isArray(result)) {
+          console.warn('Backend returned array directly, no pagination info');
+          return { 
+            data: result, 
+            pagination: { 
+              page: page, 
+              limit: limit, 
+              total: result.length, 
+              totalPages: Math.ceil(result.length / limit) 
+            } 
+          };
+        }
+        
+        console.error('Unexpected response structure:', result);
         return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
       } catch (err: any) {
         console.error('Error fetching current affairs:', err);
@@ -67,12 +112,22 @@ export default function CurrentAffairsPage() {
   });
 
   const items = Array.isArray(data) ? data : (data?.data || []);
+  
+  // Extract pagination data - prioritize backend pagination.total over items.length
+  // items.length is just the current page size, not the total count
   const pagination = data?.pagination || {
     page: page,
     limit: limit,
-    total: items.length,
-    totalPages: Math.ceil(items.length / limit),
+    total: 0,
+    totalPages: 0,
   };
+  
+  // Use pagination.total from backend, never fall back to items.length for total count
+  // items.length is only the current page's items, not the total
+  const totalItems = pagination.total !== undefined ? pagination.total : 0;
+  const totalPages = pagination.totalPages !== undefined 
+    ? Math.max(1, pagination.totalPages) 
+    : (totalItems > 0 ? Math.max(1, Math.ceil(totalItems / limit)) : 1);
 
   // Reset to page 1 when search changes
   React.useEffect(() => {
@@ -242,13 +297,17 @@ export default function CurrentAffairsPage() {
             )}
             
             {/* Pagination */}
-            {!isLoading && items.length > 0 && (
+            {!isLoading && (items.length > 0 || totalItems > 0) && (
               <Pagination
-                currentPage={pagination.page || page}
-                totalPages={pagination.totalPages || 1}
-                onPageChange={setPage}
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(newPage) => {
+                  setPage(newPage);
+                  // Scroll to top when page changes
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 itemsPerPage={limit}
-                totalItems={pagination.total || items.length}
+                totalItems={totalItems}
                 onItemsPerPageChange={(newLimit) => {
                   setLimit(newLimit);
                   setPage(1);

@@ -16,7 +16,8 @@ REGION="ap-south-1"
 ENVIRONMENT="production"
 PROJECT_NAME="lifeset"
 S3_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-admin-panel"
-CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
+# CloudFront Distribution ID - can be set via environment variable or passed as first argument
+CLOUDFRONT_DISTRIBUTION_ID="${1:-${CLOUDFRONT_DISTRIBUTION_ID:-}}"
 BACKEND_API_URL="${BACKEND_API_URL:-}"
 
 echo -e "${GREEN}Deploying LifeSet Admin Panel...${NC}"

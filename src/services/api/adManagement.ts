@@ -119,7 +119,7 @@ export const adManagementApi = {
     
     const response = await apiClient.post('/files/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        // Don't set Content-Type manually - let axios set it with boundary
       },
     });
     

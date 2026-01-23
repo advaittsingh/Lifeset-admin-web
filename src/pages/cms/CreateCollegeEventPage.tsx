@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { ArrowLeft, Save, Eye, GraduationCap, Loader2, Image as ImageIcon, Calendar, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, Eye, GraduationCap, Loader2, Image as ImageIcon, Calendar, MapPin, Send, Cloud, CloudOff, Trash2, Copy } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cmsApi } from '../../services/api/cms';
 import { institutesApi } from '../../services/api/institutes';
+import { useAutoSave } from '../../hooks/useAutoSave';
+import { apiClient } from '../../services/api/client';
 
 export default function CreateCollegeEventPage() {
   const navigate = useNavigate();
@@ -27,6 +29,8 @@ export default function CreateCollegeEventPage() {
     imageUrl: '',
     imageFile: null as File | null,
     imagePreview: null as string | null,
+    isPublished: false,
+    clonedFromId: null as string | null,
   });
 
   // Fetch institutes for dropdown
@@ -36,6 +40,18 @@ export default function CreateCollegeEventPage() {
   });
 
   const institutes = Array.isArray(institutesData) ? institutesData : (institutesData?.data || []);
+
+  // Auto-save functionality (only in create mode)
+  const autoSaveKey = `cms-draft-college-event-${id || 'new'}`;
+  const { isSaving, lastSaved, hasDraft, restoreDraft, clearDraft } = useAutoSave({
+    key: autoSaveKey,
+    data: formData,
+    enabled: !isEditMode,
+    debounceMs: 2000,
+    onRestore: (restoredData) => {
+      setFormData({ ...restoredData, imageFile: null, imagePreview: restoredData.imagePreview || null });
+    },
+  });
 
   // Fetch existing item if editing
   const { data: existingItem, isLoading: isLoadingItem } = useQuery({
@@ -59,9 +75,86 @@ export default function CreateCollegeEventPage() {
         imageUrl: existingItem.imageUrl || '',
         imageFile: null,
         imagePreview: existingItem.imageUrl || null,
+        isPublished: existingItem.isPublished || false,
+        clonedFromId: null,
       });
     }
   }, [existingItem, isEditMode]);
+
+  // Restore draft on mount if in create mode
+  useEffect(() => {
+    if (!isEditMode) {
+      // Check for cloned data first
+      const cloneKeys = Object.keys(localStorage).filter(key => key.startsWith('college-event-clone-'));
+      if (cloneKeys.length > 0) {
+        const latestCloneKey = cloneKeys.sort().reverse()[0];
+        const clonedData = JSON.parse(localStorage.getItem(latestCloneKey) || '{}');
+        if (clonedData && clonedData.title) {
+          localStorage.removeItem(latestCloneKey);
+          setFormData({
+            ...clonedData,
+            clonedFromId: null, // Clear clone tracking
+            isPublished: false, // Reset published status
+            imageFile: null, // Clear file objects
+            imagePreview: clonedData.imagePreview || null,
+          });
+          showToast('Event data loaded. Review and create a new event.', 'info');
+          return;
+        }
+      }
+      
+      // Check for regular draft
+      if (hasDraft) {
+        const restored = restoreDraft();
+        if (restored && !formData.title && !formData.description) {
+          if (window.confirm('A draft was found. Would you like to restore it?')) {
+            setFormData({ ...restored, imageFile: null, imagePreview: restored.imagePreview || null });
+            showToast('Draft restored', 'success');
+          } else {
+            clearDraft();
+          }
+        }
+      }
+    }
+  }, []); // Only run on mount
+
+  // Upload image mutation
+  const imageUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await apiClient.post('/files/upload', formData, {
+        headers: {
+          // Don't set Content-Type manually - let axios set it with boundary for FormData
+        },
+      });
+      
+      const imageUrl = response.data?.data?.url || 
+                      response.data?.url || 
+                      response.data?.data?.imageUrl ||
+                      response.data?.imageUrl;
+      
+      if (!imageUrl) {
+        throw new Error('Failed to get image URL from upload response');
+      }
+      
+      return imageUrl;
+    },
+    onSuccess: (imageUrl) => {
+      setFormData(prev => ({
+        ...prev,
+        imageUrl,
+        imagePreview: imageUrl,
+        imageFile: null,
+      }));
+      showToast('Image uploaded successfully', 'success');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || 'Failed to upload image';
+      showToast(errorMessage, 'error');
+    },
+  });
 
   // Handle image file selection
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,6 +168,8 @@ export default function CreateCollegeEventPage() {
         showToast('Image size should be less than 5MB', 'error');
         return;
       }
+      
+      // Show preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({
@@ -85,6 +180,9 @@ export default function CreateCollegeEventPage() {
         }));
       };
       reader.readAsDataURL(file);
+      
+      // Upload to server
+      imageUploadMutation.mutate(file);
     }
   };
 
@@ -98,23 +196,67 @@ export default function CreateCollegeEventPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => cmsApi.createCollegeEvent({
-      title: data.title,
-      description: data.description,
-      collegeId: data.collegeId || undefined,
-      eventDate: data.eventDate || undefined,
-      location: data.location || undefined,
-      imageUrl: data.imagePreview || data.imageUrl,
-    }),
+    mutationFn: (data: typeof formData) => {
+      // Use imageUrl (uploaded URL) if available, otherwise use imagePreview (for URL input)
+      const imageUrl = data.imageUrl || (data.imagePreview && data.imagePreview.startsWith('http') ? data.imagePreview : undefined);
+      
+      return cmsApi.createCollegeEvent({
+        title: data.title,
+        description: data.description,
+        collegeId: data.collegeId || undefined,
+        eventDate: data.eventDate || undefined,
+        location: data.location || undefined,
+        imageUrl: imageUrl,
+        isPublished: data.isPublished || false,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['college-events'] });
+      clearDraft();
       showToast('College event created successfully', 'success');
       navigate('/cms/college-events');
     },
     onError: () => showToast('Failed to create college event', 'error'),
   });
 
-  const handleSubmit = () => {
+  const updateMutation = useMutation({
+    mutationFn: (data: typeof formData) => {
+      // Use imageUrl (uploaded URL) if available, otherwise use imagePreview (for URL input)
+      const imageUrl = data.imageUrl || (data.imagePreview && data.imagePreview.startsWith('http') ? data.imagePreview : undefined);
+      
+      return cmsApi.updateCollegeEvent(id!, {
+        title: data.title,
+        description: data.description,
+        collegeId: data.collegeId || undefined,
+        eventDate: data.eventDate || undefined,
+        location: data.location || undefined,
+        imageUrl: imageUrl,
+        isPublished: data.isPublished || false,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['college-events'] });
+      queryClient.invalidateQueries({ queryKey: ['college-event', id] });
+      showToast('College event updated successfully', 'success');
+      navigate('/cms/college-events');
+    },
+    onError: () => showToast('Failed to update college event', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (eventId: string) => cmsApi.deleteCollegeEvent(eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['college-events'] });
+      showToast('College event deleted successfully', 'success');
+      navigate('/cms/college-events');
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete event';
+      showToast(String(errorMessage), 'error');
+    },
+  });
+
+  const handleSubmit = (publish: boolean = false) => {
     if (!formData.title.trim()) {
       showToast('Please enter a title', 'error');
       return;
@@ -124,7 +266,12 @@ export default function CreateCollegeEventPage() {
       return;
     }
 
-    createMutation.mutate(formData);
+    const dataToSubmit = { ...formData, isPublished: publish };
+    if (isEditMode) {
+      updateMutation.mutate(dataToSubmit);
+    } else {
+      createMutation.mutate(dataToSubmit);
+    }
   };
 
   if (isLoadingItem && isEditMode) {
@@ -160,23 +307,78 @@ export default function CreateCollegeEventPage() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={handleSubmit}
-            disabled={createMutation.isPending}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
-          >
-            {createMutation.isPending ? (
+          <div className="flex items-center gap-2">
+            {isEditMode && (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Create Event
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+                      deleteMutation.mutate(id!);
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Clone: navigate to create page with cloned data
+                    const clonedData = { ...formData, clonedFromId: id };
+                    localStorage.setItem(`college-event-clone-${Date.now()}`, JSON.stringify(clonedData));
+                    navigate('/cms/college-events/create');
+                    showToast('Event data copied. Fill in the form to create a new event.', 'info');
+                  }}
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Clone
+                </Button>
               </>
             )}
-          </Button>
+            <Button
+              onClick={() => handleSubmit(false)}
+              disabled={createMutation.isPending || updateMutation.isPending || imageUploadMutation.isPending}
+              variant="outline"
+              className="border-slate-300"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => handleSubmit(true)}
+              disabled={createMutation.isPending || updateMutation.isPending || imageUploadMutation.isPending}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Publish
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Main Content - Side by Side */}
@@ -230,8 +432,8 @@ export default function CreateCollegeEventPage() {
                   placeholder="Write the event description..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1 min-h-[150px]"
-                  rows={8}
+                  className="mt-1 min-h-[200px]"
+                  rows={10}
                 />
               </div>
 
@@ -337,10 +539,18 @@ export default function CreateCollegeEventPage() {
                         placeholder="https://example.com/image.jpg"
                         value={formData.imageUrl}
                         onChange={(e) => {
-                          if (e.target.value) {
+                          const url = e.target.value;
+                          if (url) {
                             setFormData({ 
                               ...formData, 
-                              imageUrl: e.target.value,
+                              imageUrl: url,
+                              imageFile: null,
+                              imagePreview: url, // Set preview to URL for display
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              imageUrl: '',
                               imageFile: null,
                               imagePreview: null,
                             });
@@ -401,9 +611,9 @@ export default function CreateCollegeEventPage() {
                         <div className="h-6 bg-slate-200 rounded animate-pulse"></div>
                       )}
                       {formData.description ? (
-                        <div className="text-sm text-slate-600 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                        <p className="text-sm text-slate-600 line-clamp-3 whitespace-pre-wrap">
                           {formData.description}
-                        </div>
+                        </p>
                       ) : (
                         <div className="space-y-2">
                           <div className="h-4 bg-slate-200 rounded animate-pulse"></div>

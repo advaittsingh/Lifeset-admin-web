@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -12,10 +12,11 @@ import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function CreateCoursePage() {
-  const { id } = useParams<{ id: string }>();
+  const { id, courseId } = useParams<{ id: string; courseId?: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const isEditMode = !!courseId;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -25,7 +26,7 @@ export default function CreateCoursePage() {
     specialisationId: '',
     affiliationId: '', // Optional - Institute ID
     affiliationName: '', // Display name for selected institute
-    duration: '', // Mandatory - Number of years
+    duration: '', // Mandatory - Number of semesters
     section: '', // Optional - Section (ABCD or 1234)
     courseMode: '', // Full Time, Part Time
     level: '', // UG/PG/Diploma/Vocational
@@ -50,6 +51,42 @@ export default function CreateCoursePage() {
     }
   }, [showInstituteDropdown]);
 
+  // Fetch institute data
+  const { data: instituteData } = useQuery({
+    queryKey: ['institute', id],
+    queryFn: () => institutesApi.getInstituteById(id!),
+    enabled: !!id,
+  });
+
+  // Fetch all courses for the institute (used to get course data in edit mode)
+  const { data: allCoursesData, isLoading: isLoadingCourses } = useQuery({
+    queryKey: ['institute-courses', id],
+    queryFn: () => institutesApi.getCoursesByInstitute(id!),
+    enabled: isEditMode && !!id,
+  });
+
+  // Try to fetch course by ID first, fallback to courses list
+  const { data: courseDataById, isLoading: isLoadingCourseById, error: courseErrorById } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => institutesApi.getCourseById(courseId!),
+    enabled: isEditMode && !!courseId,
+    retry: false, // Don't retry if endpoint doesn't exist
+  });
+
+  // Get course data - prefer direct API call, fallback to courses list
+  const courseData = courseDataById || (allCoursesData ? (() => {
+    const allCourses = Array.isArray(allCoursesData) ? allCoursesData : (allCoursesData?.data || []);
+    const course = allCourses.find((c: any) => c.id === courseId);
+    if (course) {
+      console.log('Course data found in courses list:', course);
+      return course;
+    }
+    return null;
+  })() : null);
+
+  const isLoadingCourse = isLoadingCourseById || (isEditMode && isLoadingCourses && !allCoursesData);
+  const courseError = courseErrorById && !allCoursesData ? courseErrorById : null;
+
   // Fetch categories
   const { data: categoriesData } = useQuery({
     queryKey: ['course-categories'],
@@ -63,7 +100,9 @@ export default function CreateCoursePage() {
     enabled: showInstituteDropdown && instituteSearchTerm.length > 0,
   });
 
-  const institutes = Array.isArray(institutesData) ? institutesData : (institutesData?.data || []);
+  const allInstitutes = Array.isArray(institutesData) ? institutesData : (institutesData?.data || []);
+  // Filter institutes to only show those that can affiliate courses
+  const institutes = allInstitutes.filter((institute: any) => institute.canAffiliateCourse === true);
 
   // Fetch awarded based on selected category
   const { data: awardedData } = useQuery({
@@ -72,34 +111,125 @@ export default function CreateCoursePage() {
     enabled: !!formData.categoryId,
   });
 
-  // Fetch specialisations based on selected course category (changed from awardedId)
+  // Fetch specialisations based on selected category
   const { data: specialisationData } = useQuery({
     queryKey: ['specialisations', formData.categoryId],
-    queryFn: () => institutesApi.getSpecialisationData(formData.categoryId || undefined),
+    queryFn: async () => {
+      if (!formData.categoryId) {
+        return [];
+      }
+      console.log('Fetching specialisations for categoryId:', formData.categoryId);
+      const result = await institutesApi.getSpecialisationData(formData.categoryId);
+      console.log('Specialisations API response:', result);
+      return result;
+    },
     enabled: !!formData.categoryId,
   });
 
   const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []);
   const awardedList = Array.isArray(awardedData) ? awardedData : (awardedData?.data || []);
-  const specialisations = Array.isArray(specialisationData) ? specialisationData : (specialisationData?.data || []);
+  const allSpecialisations = Array.isArray(specialisationData) ? specialisationData : (specialisationData?.data || []);
+  
+  // Filter specialisations by categoryId on client side
+  // This ensures filtering works correctly even if backend doesn't filter properly
+  const specialisations = formData.categoryId 
+    ? allSpecialisations.filter((spec: any) => {
+        // Check if specialisation has courseCategoryId field that matches
+        if (spec.courseCategoryId) {
+          return spec.courseCategoryId === formData.categoryId;
+        }
+        // If backend returns category object, check its id
+        if (spec.category?.id) {
+          return spec.category.id === formData.categoryId;
+        }
+        // Fallback: If specialisation has awardedId, check if that awarded belongs to the selected category
+        if (spec.awardedId) {
+          const awarded = awardedList.find((a: any) => a.id === spec.awardedId);
+          if (awarded?.courseCategoryId === formData.categoryId) {
+            return true;
+          }
+        }
+        // If no category information is available, exclude it
+        // This ensures we only show specialisations that can be linked to the selected category
+        return false;
+      })
+    : [];
+  
+  // Log filtering results for debugging
+  if (formData.categoryId) {
+    console.log(`Category: ${formData.categoryId}, Total specialisations from API: ${allSpecialisations.length}, Filtered: ${specialisations.length}`);
+    if (allSpecialisations.length > specialisations.length) {
+      console.warn(`Backend returned ${allSpecialisations.length} specialisations but only ${specialisations.length} match category ${formData.categoryId}. Backend should filter by courseCategoryId.`);
+    }
+  }
 
-  // Reset awarded and specialisation when category changes
+  // Reset awarded and specialisation when category changes (only in create mode, and not when populating)
+  // Specialisations are now linked to category, not awarded, so they reset when category changes
   useEffect(() => {
-    if (formData.categoryId) {
+    if (!isEditMode && !hasPopulatedRef.current && formData.categoryId) {
       setFormData(prev => ({ ...prev, awardedId: '', specialisationId: '' }));
     }
-  }, [formData.categoryId]);
+  }, [isEditMode, formData.categoryId]);
 
-  // Reset specialisation when category changes (changed from awardedId)
+  // Populate form data when course data is loaded (edit mode)
+  // Use a ref to track if we've already populated to prevent re-runs
+  const hasPopulatedRef = useRef(false);
+  const courseDataRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (formData.categoryId) {
-      setFormData(prev => ({ ...prev, specialisationId: '' }));
+    if (isEditMode && courseData && !isLoadingCourse && courseId) {
+      // Only populate if this is new data (different courseId)
+      if (courseDataRef.current !== courseId || !hasPopulatedRef.current) {
+        console.log('Loading course data into form:', courseData);
+        const course = courseData;
+        
+        const newFormData = {
+          name: course.name || '',
+          description: course.description || '',
+          categoryId: course.categoryId || course.category?.id || '',
+          awardedId: course.awardedId || '',
+          specialisationId: course.specialisationId || '',
+          affiliationId: course.affiliationId || '',
+          affiliationName: course.affiliationName || course.affiliation?.name || '',
+          duration: course.duration ? String(course.duration) : '',
+          section: course.section || '',
+          courseMode: course.courseMode || '',
+          level: course.level || '',
+        };
+        
+        console.log('Setting form data to:', newFormData);
+        
+        setFormData(newFormData);
+        hasPopulatedRef.current = true;
+        courseDataRef.current = courseId;
+        
+        // Log after a brief delay to verify it was set
+        setTimeout(() => {
+          console.log('Form data should now be set. Verify in React DevTools.');
+        }, 100);
+      }
     }
-  }, [formData.categoryId]);
+  }, [isEditMode, courseData, isLoadingCourse, courseId]);
+
+  // Reset the ref when leaving edit mode or courseId changes
+  useEffect(() => {
+    if (!isEditMode || !courseId) {
+      hasPopulatedRef.current = false;
+      courseDataRef.current = null;
+    }
+  }, [isEditMode, courseId]);
+
+  // Debug: Log formData changes
+  useEffect(() => {
+    if (isEditMode) {
+      console.log('FormData changed:', formData);
+    }
+  }, [formData, isEditMode]);
 
   // Auto-generate course name based on Award + Specialisation (Category is not included in name)
+  // Only auto-generate in create mode, not edit mode
   useEffect(() => {
-    if (formData.awardedId) {
+    if (!isEditMode && formData.awardedId) {
       const awarded = awardedList.find((a: any) => a.id === formData.awardedId);
       
       if (awarded) {
@@ -115,21 +245,27 @@ export default function CreateCoursePage() {
         
         setFormData(prev => ({ ...prev, name: generatedName }));
       }
-    } else {
-      // Clear name if award is not selected
+    } else if (!isEditMode && !formData.awardedId) {
+      // Clear name if award is not selected (only in create mode)
       setFormData(prev => ({ ...prev, name: '' }));
     }
-  }, [formData.awardedId, formData.specialisationId, awardedList, specialisations]);
+  }, [isEditMode, formData.awardedId, formData.specialisationId, awardedList, specialisations]);
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => institutesApi.createCourse(id!, data),
+    mutationFn: (data: any) => {
+      if (isEditMode && courseId) {
+        return institutesApi.updateCourse(courseId, data);
+      }
+      return institutesApi.createCourse(id!, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['institute-courses'] });
-      showToast('Course created successfully', 'success');
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      showToast(isEditMode ? 'Course updated successfully' : 'Course created successfully', 'success');
       navigate(`/institutes/${id}/courses`);
     },
     onError: (error: any) => {
-      console.error('Error creating course:', error);
+      console.error('Error creating/updating course:', error);
       console.error('Error response:', error?.response?.data);
       console.error('Error response (full):', JSON.stringify(error?.response?.data, null, 2));
       console.error('Error status:', error?.response?.status);
@@ -137,30 +273,100 @@ export default function CreateCoursePage() {
       console.error('Request data sent:', error?.config?.data);
       console.error('Full error object:', JSON.stringify(error?.response, null, 2));
       
-      let errorMessage = 'Failed to create course';
+      let errorMessage = isEditMode ? 'Failed to update course' : 'Failed to create course';
       
       try {
-        if (error?.response?.data) {
-          const errorData = error.response.data;
-          if (typeof errorData === 'string') {
-            errorMessage = errorData;
-          } else if (errorData?.message) {
-            errorMessage = String(errorData.message);
-          } else if (errorData?.error) {
-            errorMessage = String(errorData.error);
-          } else if (errorData?.code && errorData?.message) {
-            errorMessage = `${String(errorData.code)}: ${String(errorData.message)}`;
-          } else {
-            errorMessage = 'Server error occurred. Please check console for details.';
+        const responseData = error?.response?.data;
+        
+        if (responseData) {
+          // Handle validation errors with details array (common in NestJS)
+          if (Array.isArray(responseData)) {
+            errorMessage = responseData
+              .map((err: any) => {
+                if (typeof err === 'string') return err;
+                if (err?.message) return err.message;
+                if (err?.constraints) {
+                  // NestJS validation constraints
+                  return Object.values(err.constraints).join(', ');
+                }
+                return JSON.stringify(err);
+              })
+              .join(', ');
+          }
+          // Handle error object with message array
+          else if (responseData.message) {
+            if (Array.isArray(responseData.message)) {
+              errorMessage = responseData.message.join(', ');
+            } else if (typeof responseData.message === 'string') {
+              errorMessage = responseData.message;
+            } else {
+              errorMessage = String(responseData.message);
+            }
+          }
+          // Handle details property (NestJS validation)
+          else if (responseData.details) {
+            if (Array.isArray(responseData.details)) {
+              errorMessage = responseData.details
+                .map((detail: any) => {
+                  if (typeof detail === 'string') return detail;
+                  if (detail?.message) return detail.message;
+                  return JSON.stringify(detail);
+                })
+                .join(', ');
+            } else if (typeof responseData.details === 'string') {
+              errorMessage = responseData.details;
+            } else if (responseData.details.message) {
+              if (Array.isArray(responseData.details.message)) {
+                errorMessage = responseData.details.message.join(', ');
+              } else {
+                errorMessage = responseData.details.message;
+              }
+            }
+          }
+          // Handle direct error property
+          else if (responseData.error) {
+            if (typeof responseData.error === 'string') {
+              errorMessage = responseData.error;
+            } else if (responseData.error.message) {
+              errorMessage = responseData.error.message;
+            } else {
+              errorMessage = String(responseData.error);
+            }
+          }
+          // Handle string response
+          else if (typeof responseData === 'string') {
+            errorMessage = responseData;
+          }
+          // Handle code + message format
+          else if (responseData.code && responseData.message) {
+            errorMessage = `${String(responseData.code)}: ${String(responseData.message)}`;
+          }
+          // Last resort - try to extract any meaningful message
+          else {
+            const extractedMessage = responseData.detail || responseData.msg || responseData.statusMessage;
+            errorMessage = extractedMessage 
+              ? String(extractedMessage)
+              : 'Server error occurred. Please check console for details.';
           }
         } else if (error?.message) {
-          errorMessage = String(error.message);
+          errorMessage = error.message;
         }
       } catch (e) {
-        errorMessage = 'An unexpected error occurred';
+        console.error('Error parsing error message:', e);
+        errorMessage = 'An unexpected error occurred. Please check console for details.';
       }
       
-      showToast(String(errorMessage), 'error');
+      // Ensure we always have a string (never pass an object to showToast)
+      if (typeof errorMessage !== 'string') {
+        errorMessage = JSON.stringify(errorMessage);
+      }
+      
+      // Limit message length to avoid UI issues
+      if (errorMessage.length > 200) {
+        errorMessage = errorMessage.substring(0, 200) + '...';
+      }
+      
+      showToast(errorMessage, 'error');
     },
   });
 
@@ -235,30 +441,69 @@ export default function CreateCoursePage() {
               Back to Courses
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Create Course</h1>
-              <p className="text-slate-600 mt-1">Add a new course to this institute</p>
+              <h1 className="text-3xl font-bold text-slate-900">
+                {isEditMode ? 'Edit Course' : 'Create Course'}{instituteData?.name ? ` for ${instituteData.name}` : ''}
+              </h1>
+              <p className="text-slate-600 mt-1">
+                {isEditMode ? 'Update course information' : 'Add a new course to this institute'}
+              </p>
             </div>
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || isLoadingCourse}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
           >
             {createMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                <span>Creating...</span>
+                <span>{isEditMode ? 'Updating...' : 'Creating...'}</span>
               </>
             ) : (
               <>
                 <Check className="h-4 w-4 mr-2" />
-                <span>Create Course</span>
+                <span>{isEditMode ? 'Update Course' : 'Create Course'}</span>
               </>
             )}
           </Button>
         </div>
 
+        {/* Loading State */}
+        {isEditMode && isLoadingCourse && (
+          <Card className="border-0 shadow-xl bg-white">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-3" />
+                <span className="text-slate-600">Loading course data...</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {isEditMode && courseError && (
+          <Card className="border-0 shadow-xl bg-white border-red-200">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <p className="text-red-600 font-semibold mb-2">Error loading course data</p>
+                  <p className="text-sm text-slate-600 mb-4">
+                    {courseError instanceof Error ? courseError.message : 'Failed to fetch course information'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/institutes/${id}/courses`)}
+                  >
+                    Back to Courses
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content */}
+        {(!isEditMode || (!isLoadingCourse && courseData)) && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Left Side - Form */}
           <Card className="border-0 shadow-xl bg-white">
@@ -273,20 +518,23 @@ export default function CreateCoursePage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* Course Name - Auto-generated */}
+              {/* Course Name - Auto-generated in create mode, editable in edit mode */}
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
                   <BookOpen className="h-4 w-4" />
-                  Course Name * (Auto-generated)
+                  Course Name * {!isEditMode && '(Auto-generated)'}
                 </label>
                 <Input
                   placeholder="Select Category and Award to generate course name"
                   value={formData.name}
-                  readOnly
-                  className="mt-1 bg-slate-50 cursor-not-allowed"
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  readOnly={!isEditMode}
+                  className={`mt-1 ${!isEditMode ? 'bg-slate-50 cursor-not-allowed' : ''}`}
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Course name is automatically generated from Category + Award + Specialisation
+                  {isEditMode 
+                    ? 'Enter or edit the course name'
+                    : 'Course name is automatically generated from Category + Award + Specialisation'}
                 </p>
               </div>
 
@@ -372,10 +620,10 @@ export default function CreateCoursePage() {
                   ))}
                 </Select>
                 {!formData.categoryId && (
-                  <p className="text-xs text-slate-500 mt-1">Please select a course category first</p>
+                  <p className="text-xs text-slate-500 mt-1">Please select a category first</p>
                 )}
                 {formData.categoryId && specialisations.length === 0 && (
-                  <p className="text-xs text-slate-500 mt-1">No specialisations available for this course category. Create specialisations in Specialisations page first.</p>
+                  <p className="text-xs text-slate-500 mt-1">No specialisations available for this category. Create specialisations in Specialisations page first.</p>
                 )}
               </div>
 
@@ -383,12 +631,12 @@ export default function CreateCoursePage() {
               <div className="institute-search-container">
                 <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  Affiliation (Optional)
+                  Affiliation (Optional) - Educational Institutions
                 </label>
                 <div className="relative mt-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search and select university/institute..."
+                    placeholder="Search and select educational institution..."
                     value={formData.affiliationName || instituteSearchTerm}
                     onChange={(e) => {
                       setInstituteSearchTerm(e.target.value);
@@ -448,7 +696,7 @@ export default function CreateCoursePage() {
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-2 block flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Duration (Years) *
+                  Duration (Semesters) *
                 </label>
                 <Select
                   value={formData.duration}
@@ -458,7 +706,7 @@ export default function CreateCoursePage() {
                   <option value="">Select Duration</option>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <option key={num} value={num}>
-                      {num} {num === 1 ? 'Year' : 'Years'}
+                      {num} {num === 1 ? 'Semester' : 'Semesters'}
                     </option>
                   ))}
                 </Select>
@@ -595,6 +843,7 @@ export default function CreateCoursePage() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
     </AdminLayout>
   );

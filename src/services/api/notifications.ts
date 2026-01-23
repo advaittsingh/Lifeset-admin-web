@@ -71,5 +71,32 @@ export const notificationsApi = {
     const response = await apiClient.delete(`/notifications/${id}`);
     return response.data;
   },
+
+  send: async (data: {
+    userIds?: string[] | null; // null = broadcast to all users
+    notification: {
+      title: string;
+      body: string;
+    };
+    redirectUrl?: string;
+    imageUrl?: string;
+    data?: Record<string, any>;
+  }) => {
+    const response = await apiClient.post('/notifications/send', data);
+    // Log full response for debugging
+    console.log('Notification API - Full response:', response);
+    console.log('Notification API - Response data:', response.data);
+    console.log('Notification API - Response status:', response.status);
+    
+    // Return the data object from response, preserving success flag
+    const responseData = response.data.data || response.data;
+    
+    // If backend returns success: false in the data object, preserve it
+    if (response.data?.data && response.data.data.success === false) {
+      return response.data.data;
+    }
+    
+    return responseData;
+  },
 };
 

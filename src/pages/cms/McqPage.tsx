@@ -44,12 +44,23 @@ export default function McqPage() {
   const questions = Array.isArray(questionsData) 
     ? questionsData 
     : (questionsData?.data || []);
-  const pagination = questionsData?.pagination || {
+  
+  // Properly handle pagination from backend
+  const pagination = questionsData?.pagination || (Array.isArray(questionsData) ? {
     page: 1,
     limit: limit,
     total: questions.length,
     totalPages: Math.ceil(questions.length / limit),
-  };
+  } : {
+    page: page,
+    limit: limit,
+    total: questions.length,
+    totalPages: Math.max(1, Math.ceil(questions.length / limit)),
+  });
+  
+  // Ensure totalPages is at least 1
+  const totalPages = Math.max(1, pagination.totalPages || Math.ceil((pagination.total || questions.length) / limit));
+  const totalItems = pagination.total || questions.length;
   const categories = categoriesData || [];
 
   // Reset to page 1 when search or filter changes
@@ -195,13 +206,17 @@ export default function McqPage() {
             )}
             
             {/* Pagination */}
-            {!isLoading && questions.length > 0 && (
+            {!isLoading && (questions.length > 0 || totalItems > 0) && (
               <Pagination
-                currentPage={pagination.page || page}
-                totalPages={pagination.totalPages || 1}
-                onPageChange={setPage}
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(newPage) => {
+                  setPage(newPage);
+                  // Scroll to top when page changes
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 itemsPerPage={limit}
-                totalItems={pagination.total || questions.length}
+                totalItems={totalItems}
                 onItemsPerPageChange={(newLimit) => {
                   setLimit(newLimit);
                   setPage(1);

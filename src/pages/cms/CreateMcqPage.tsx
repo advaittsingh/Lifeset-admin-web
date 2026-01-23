@@ -840,7 +840,7 @@ export default function CreateMcqPage() {
                             </div>
                           )}
                           {formData.question && (
-                            <h3 className="text-lg font-bold text-slate-900 mb-4">{formData.question}</h3>
+                            <h3 className="text-lg font-bold text-slate-900 mb-4 whitespace-pre-wrap">{formData.question}</h3>
                           )}
                         </div>
 

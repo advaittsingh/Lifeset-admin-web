@@ -8,6 +8,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { ArrowLeft, Save, Eye, Briefcase, MapPin, DollarSign, Calendar, Users, Loader2, Building2, Clock, CheckCircle2, Cloud, CloudOff, FileText, Award, Trash2, Copy, Send } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { freelancerApi } from '../../services/api/freelancer';
 import { jobsApi } from '../../services/api/jobs';
 import { institutesApi } from '../../services/api/institutes';
 import { postsApi } from '../../services/api/posts';
@@ -40,7 +41,7 @@ const candidateQualities = [
   { id: 'people_impact', label: 'People impact', description: 'Values relationships, Collaborative' },
 ];
 
-export default function CreateJobPage() {
+export default function CreateFreelancerPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const isEditMode = !!id;
@@ -59,7 +60,7 @@ export default function CreateJobPage() {
     skills: '',
     function: '',
     experience: '',
-    jobType: '',
+    jobType: 'Freelance', // Default to Freelance, but allow Contractual
     capacity: '',
     workTime: '',
     perksAndBenefits: '',
@@ -125,7 +126,7 @@ export default function CreateJobPage() {
   });
 
   // Auto-save functionality (only in create mode, not edit mode)
-  const autoSaveKey = `cms-draft-job-${id || 'new'}`;
+  const autoSaveKey = `cms-draft-freelancer-${id || 'new'}`;
   const { isSaving, lastSaved, hasDraft, restoreDraft, clearDraft } = useAutoSave({
     key: autoSaveKey,
     data: formData,
@@ -171,19 +172,27 @@ export default function CreateJobPage() {
         skillsValue = job.skills;
       }
       
-      // Get jobType - check if it's an enum value and convert back to display format
-      let jobTypeValue = post.jobType || job.jobType || metadata.jobType || '';
-      if (jobTypeValue) {
-        // Convert enum back to display format
-        const enumToDisplay: Record<string, string> = {
-          'FULL_TIME': 'Full-time',
-          'PART_TIME': 'Part-time',
-          'CONTRACT': 'Contract',
-          'INTERNSHIP': 'Internship',
-          'FREELANCE': 'Freelance',
-        };
-        jobTypeValue = enumToDisplay[jobTypeValue] || jobTypeValue;
-      }
+        // Get jobType - check if it's an enum value and convert back to display format
+        // Default to Freelance, but allow Contractual
+        let jobTypeValue = 'Freelance';
+        const storedJobType = post.jobType || job.jobType || metadata.jobType || '';
+        if (storedJobType) {
+          // Convert enum back to display format
+          const enumToDisplay: Record<string, string> = {
+            'FULL_TIME': 'Full-time',
+            'PART_TIME': 'Part-time',
+            'CONTRACT': 'Contractual', // Map CONTRACT to Contractual for UI
+            'INTERNSHIP': 'Internship',
+            'FREELANCE': 'Freelance',
+          };
+          const converted = enumToDisplay[storedJobType] || storedJobType;
+          // Use if it's Freelance or Contractual
+          if (converted === 'Freelance' || storedJobType === 'FREELANCE') {
+            jobTypeValue = 'Freelance';
+          } else if (converted === 'Contractual' || storedJobType === 'CONTRACT') {
+            jobTypeValue = 'Contractual';
+          }
+        }
       
       // Helper function to get value from multiple sources
       const getValue = (sources: any[], defaultValue: any = '') => {
@@ -278,7 +287,7 @@ export default function CreateJobPage() {
   useEffect(() => {
     if (!isEditMode) {
       // Check for cloned data first
-      const cloneKeys = Object.keys(localStorage).filter(key => key.startsWith('job-clone-'));
+      const cloneKeys = Object.keys(localStorage).filter(key => key.startsWith('freelancer-clone-'));
       if (cloneKeys.length > 0) {
         const latestCloneKey = cloneKeys.sort().reverse()[0];
         const clonedData = JSON.parse(localStorage.getItem(latestCloneKey) || '{}');
@@ -289,7 +298,7 @@ export default function CreateJobPage() {
             clonedFromId: null, // Clear clone tracking
             isPublished: false, // Reset published status
           });
-          showToast('Job data loaded. Review and create a new job.', 'info');
+          showToast('Freelancer opportunity data loaded. Review and create a new opportunity.', 'info');
           return;
         }
       }
@@ -329,7 +338,7 @@ export default function CreateJobPage() {
         }
       }
 
-      return jobsApi.create({
+      return freelancerApi.create({
         jobTitle: data.jobTitle,
         jobDescription: data.jobDescription,
         location: data.location || undefined,
@@ -359,12 +368,12 @@ export default function CreateJobPage() {
       // Clear draft on successful save
       clearDraft();
       // Invalidate both jobs and posts queries since jobs are stored as posts
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['freelancer'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       // Force refetch to ensure fresh data
-      queryClient.refetchQueries({ queryKey: ['jobs'] });
-      showToast('Job posted successfully', 'success');
-      navigate('/jobs');
+      queryClient.refetchQueries({ queryKey: ['freelancer'] });
+      showToast('Freelancer opportunity posted successfully', 'success');
+      navigate('/freelancer');
     },
     onError: (error: any) => {
       console.error('Create job error:', error);
@@ -412,17 +421,14 @@ export default function CreateJobPage() {
         }
       };
 
-      // Convert jobType display value to enum format (same as create mutation)
-      const mapJobTypeToEnum = (jobType?: string): string | undefined => {
-        if (!jobType) return undefined;
+      // Convert jobType display value to enum format (Freelance or Contractual)
+      const mapJobTypeToEnum = (jobType?: string): string => {
+        if (!jobType) return 'FREELANCE'; // Default to FREELANCE
         const mapping: Record<string, string> = {
-          'Full-time': 'FULL_TIME',
-          'Part-time': 'PART_TIME',
-          'Contract': 'CONTRACT',
-          'Internship': 'INTERNSHIP',
           'Freelance': 'FREELANCE',
+          'Contractual': 'CONTRACT', // Map Contractual to CONTRACT enum
         };
-        return mapping[jobType] || jobType.toUpperCase();
+        return mapping[jobType] || 'FREELANCE';
       };
 
       const metadata: any = {
@@ -478,10 +484,8 @@ export default function CreateJobPage() {
         metadata,
       };
       
-      // Also send jobType at top level to match create mutation format
-      if (jobTypeEnum) {
-        updatePayload.jobType = jobTypeEnum;
-      }
+      // Send jobType at top level (FREELANCE or CONTRACT) - reuse the jobTypeEnum variable
+      updatePayload.jobType = jobTypeEnum;
       
       return postsApi.update(postId, updatePayload);
     },
@@ -489,13 +493,13 @@ export default function CreateJobPage() {
       // Clear draft on successful save
       clearDraft();
       // Invalidate both jobs and posts queries since jobs are stored as posts
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['freelancer'] });
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      queryClient.invalidateQueries({ queryKey: ['job', id] });
+      queryClient.invalidateQueries({ queryKey: ['freelancer', id] });
       // Force refetch to ensure fresh data
-      queryClient.refetchQueries({ queryKey: ['jobs'] });
-      showToast('Job updated successfully', 'success');
-      navigate('/jobs');
+      queryClient.refetchQueries({ queryKey: ['freelancer'] });
+      showToast('Freelancer opportunity updated successfully', 'success');
+      navigate('/freelancer');
     },
     onError: (error: any) => {
       console.error('Update job error:', error);
@@ -568,7 +572,7 @@ export default function CreateJobPage() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate('/freelancer')}
               className="hover:bg-slate-100"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -576,10 +580,10 @@ export default function CreateJobPage() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-slate-900">
-                {isEditMode ? 'Edit Job Posting' : 'Create Job Posting'}
+                {isEditMode ? 'Edit Freelancer Opportunity' : 'Create Freelancer Opportunity'}
               </h1>
               <p className="text-slate-600 mt-1">
-                {isEditMode ? 'Update job posting details' : 'Add a new job or internship posting'}
+                {isEditMode ? 'Update freelancer opportunity details' : 'Add a new freelancer opportunity posting'}
               </p>
             </div>
           </div>
@@ -589,7 +593,7 @@ export default function CreateJobPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+                    if (window.confirm('Are you sure you want to delete this freelancer opportunity? This action cannot be undone.')) {
                       deleteMutation.mutate(id!);
                     }
                   }}
@@ -608,9 +612,9 @@ export default function CreateJobPage() {
                   onClick={() => {
                     // Clone: navigate to create page with cloned data
                     const clonedData = { ...formData, clonedFromId: id };
-                    localStorage.setItem(`job-clone-${Date.now()}`, JSON.stringify(clonedData));
-                    navigate('/jobs/create');
-                    showToast('Job data copied. Fill in the form to create a new job.', 'info');
+                    localStorage.setItem(`freelancer-clone-${Date.now()}`, JSON.stringify(clonedData));
+                    navigate('/freelancer/create');
+                    showToast('Freelancer opportunity data copied. Fill in the form to create a new opportunity.', 'info');
                   }}
                   className="border-blue-300 text-blue-600 hover:bg-blue-50"
                 >
@@ -843,13 +847,10 @@ export default function CreateJobPage() {
                     onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mt-1"
                   >
-                    <option value="">Select Job Type</option>
-                    <option value="Full-time">Full-time</option>
-                    <option value="Part-time">Part-time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Internship">Internship</option>
                     <option value="Freelance">Freelance</option>
+                    <option value="Contractual">Contractual</option>
                   </select>
+                  <p className="text-xs text-slate-500 mt-1">Select Freelance or Contractual</p>
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-slate-700 mb-2 block">Capacity</label>

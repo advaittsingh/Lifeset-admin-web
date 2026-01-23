@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Edit, Trash2, Search, Loader2, AlertCircle, Image as ImageIcon, Link as LinkIcon, Eye, EyeOff, ExternalLink, TrendingUp } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
+import { sponsorAdsApi } from '../../services/api/sponsorAds';
 
 interface SponsorAd {
   id: string;
@@ -25,49 +26,43 @@ export default function SponsorAdsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Mock data - replace with actual API call
+  // Fetch sponsor ads from API
   const { data: adsData, isLoading } = useQuery({
     queryKey: ['sponsor-ads', searchTerm, currentPage, itemsPerPage],
-    queryFn: async () => {
-      // This would be an actual API call
-      return {
-        data: [
-          {
-            id: '28',
-            sponsorBacklink: 'https://wa.me/918630654336?text=Hello%20LifeSet!',
-            sponsorAdImage: 'https://via.placeholder.com/150x150?text=Ad+1',
-            status: 'active' as const,
-            createdAt: '2025-11-20T10:00:00Z',
-            updatedAt: '2025-11-20T10:00:00Z',
-          },
-          {
-            id: '24',
-            sponsorBacklink: 'https://forms.gle/PLZU8cyCVF8qrxx16',
-            sponsorAdImage: 'https://via.placeholder.com/150x150?text=Ad+2',
-            status: 'active' as const,
-            createdAt: '2025-11-18T14:30:00Z',
-            updatedAt: '2025-11-18T14:30:00Z',
-          },
-        ],
-        total: 2,
-      };
-    },
+    queryFn: () => sponsorAdsApi.getAll({ 
+      page: currentPage, 
+      limit: itemsPerPage,
+      search: searchTerm || undefined,
+    }),
   });
 
-  const ads = adsData?.data || [];
-  const filteredAds = ads.filter((ad: SponsorAd) =>
-    ad.sponsorBacklink.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Safely extract ads array from response
+  const ads = Array.isArray(adsData?.data) 
+    ? adsData.data 
+    : Array.isArray(adsData) 
+      ? adsData 
+      : [];
+  
+  // Filter by search term if not handled by backend
+  const filteredAds = Array.isArray(ads) && searchTerm 
+    ? ads.filter((ad: SponsorAd) =>
+        ad?.sponsorBacklink?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : Array.isArray(ads) ? ads : [];
 
-  const totalPages = Math.ceil(filteredAds.length / itemsPerPage);
+  // Use backend pagination if available, otherwise use client-side pagination
+  const pagination = adsData?.pagination;
+  const totalPages = pagination?.totalPages || Math.ceil(filteredAds.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedAds = filteredAds.slice(startIndex, endIndex);
+  const paginatedAds = Array.isArray(filteredAds) 
+    ? filteredAds.slice(startIndex, endIndex) 
+    : [];
 
   const stats = {
-    total: ads.length,
-    active: ads.filter((ad: SponsorAd) => ad.status === 'active').length,
-    inactive: ads.filter((ad: SponsorAd) => ad.status === 'inactive').length,
+    total: Array.isArray(ads) ? ads.length : 0,
+    active: Array.isArray(ads) ? ads.filter((ad: SponsorAd) => ad?.status === 'active').length : 0,
+    inactive: Array.isArray(ads) ? ads.filter((ad: SponsorAd) => ad?.status === 'inactive').length : 0,
   };
 
   const handleAdManagement = () => {
@@ -82,14 +77,39 @@ export default function SponsorAdsPage() {
     // This is no longer used as we navigate to edit page
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => sponsorAdsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sponsor-ads'] });
+      showToast('Sponsor ad deleted successfully', 'success');
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || 'Failed to delete sponsor ad';
+      showToast(errorMessage, 'error');
+    },
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'active' | 'inactive' }) => 
+      sponsorAdsApi.toggleStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sponsor-ads'] });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || 'Failed to update status';
+      showToast(errorMessage, 'error');
+    },
+  });
+
   const handleDelete = (ad: SponsorAd) => {
     if (window.confirm(`Are you sure you want to delete sponsor ad #${ad.id}?`)) {
-      showToast('Sponsor ad deleted successfully', 'success');
+      deleteMutation.mutate(ad.id);
     }
   };
 
   const toggleStatus = (ad: SponsorAd) => {
     const newStatus = ad.status === 'active' ? 'inactive' : 'active';
+    toggleStatusMutation.mutate({ id: ad.id, status: newStatus });
     showToast(`Sponsor ad ${newStatus === 'active' ? 'activated' : 'deactivated'}`, 'success');
   };
 
@@ -216,69 +236,86 @@ export default function SponsorAdsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedAds.map((ad: SponsorAd) => (
-                      <tr key={ad.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="py-4 px-4 text-slate-900 font-medium">{ad.id}</td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2 max-w-md">
-                            <LinkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                            <a
-                              href={ad.sponsorBacklink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:text-blue-700 hover:underline truncate flex items-center gap-1"
+                    {Array.isArray(paginatedAds) && paginatedAds.map((ad: SponsorAd) => {
+                      if (!ad || !ad.id) return null;
+                      return (
+                        <tr key={ad.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="py-4 px-4 text-slate-900 font-medium">{ad.id}</td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2 max-w-md">
+                              <LinkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                              <a
+                                href={ad.sponsorBacklink || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:text-blue-700 hover:underline truncate flex items-center gap-1"
+                              >
+                                {ad.sponsorBacklink || 'No link'}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            {ad.sponsorAdImage ? (
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={ad.sponsorAdImage}
+                                  alt={`Sponsor ad ${ad.id}`}
+                                  className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = '<span class="text-xs text-slate-400">No image</span>';
+                                    }
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400">No image</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4">
+                            <button
+                              onClick={() => toggleStatus(ad)}
+                              disabled={toggleStatusMutation.isPending}
+                              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                                ad.status === 'active'
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                              } ${toggleStatusMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
-                              {ad.sponsorBacklink}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={ad.sponsorAdImage}
-                              alt={`Sponsor ad ${ad.id}`}
-                              className="w-16 h-16 object-cover rounded-lg border border-slate-200"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150x150?text=No+Image';
-                              }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <button
-                            onClick={() => toggleStatus(ad)}
-                            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                              ad.status === 'active'
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'
-                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                            }`}
-                          >
-                            {ad.status === 'active' ? 'Active' : 'Inactive'}
-                          </button>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(ad)}
-                              className="hover:bg-blue-50 hover:border-blue-300"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(ad)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {ad.status === 'active' ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(ad)}
+                                className="hover:bg-blue-50 hover:border-blue-300"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(ad)}
+                                disabled={deleteMutation.isPending}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
+                              >
+                                {deleteMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -288,7 +325,7 @@ export default function SponsorAdsPage() {
             {paginatedAds.length > 0 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                 <div className="text-sm text-slate-600">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredAds.length)} of {filteredAds.length} entries
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredAds.length)} of {pagination?.total || filteredAds.length} entries
                 </div>
                 <div className="flex items-center gap-2">
                   <Button

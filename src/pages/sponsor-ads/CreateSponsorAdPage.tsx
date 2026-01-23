@@ -7,12 +7,15 @@ import { Input } from '../../components/ui/input';
 import { ArrowLeft, Save, Eye, Link as LinkIcon, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { sponsorAdsApi } from '../../services/api/sponsorAds';
+import { apiClient } from '../../services/api/client';
 
 type SponsorAdFormData = {
   sponsorBacklink: string;
   sponsorAdImage: string;
   sponsorAdImageFile: File | null;
   imagePreview: string | null;
+  imageUrl: string; // Added for uploaded image URL
   status: 'active' | 'inactive';
 };
 
@@ -28,21 +31,14 @@ export default function CreateSponsorAdPage() {
     sponsorAdImage: '',
     sponsorAdImageFile: null as File | null,
     imagePreview: null as string | null,
+    imageUrl: '',
     status: 'active' as 'active' | 'inactive',
   });
 
   // Fetch existing ad if editing
   const { data: existingAd, isLoading: isLoadingAd } = useQuery({
     queryKey: ['sponsor-ad', id],
-    queryFn: async () => {
-      // This would be an actual API call
-      return {
-        id: id,
-        sponsorBacklink: 'https://wa.me/918630654336?text=Hello%20LifeSet!',
-        sponsorAdImage: 'https://via.placeholder.com/300x300?text=Ad+Image',
-        status: 'active' as const,
-      };
-    },
+    queryFn: () => sponsorAdsApi.getById(id!),
     enabled: isEditMode && !!id,
   });
 
@@ -54,10 +50,50 @@ export default function CreateSponsorAdPage() {
         sponsorAdImage: existingAd.sponsorAdImage || '',
         sponsorAdImageFile: null,
         imagePreview: existingAd.sponsorAdImage || null,
+        imageUrl: existingAd.sponsorAdImage || '',
         status: existingAd.status || 'active',
       });
     }
   }, [existingAd, isEditMode]);
+
+  // Upload image mutation
+  const imageUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await apiClient.post('/files/upload', formData, {
+        headers: {
+          // Don't set Content-Type manually - let axios set it with boundary for FormData
+        },
+      });
+      
+      const imageUrl = response.data?.data?.url || 
+                      response.data?.url || 
+                      response.data?.data?.imageUrl ||
+                      response.data?.imageUrl;
+      
+      if (!imageUrl) {
+        throw new Error('Failed to get image URL from upload response');
+      }
+      
+      return imageUrl;
+    },
+    onSuccess: (imageUrl) => {
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: imageUrl,
+        sponsorAdImage: imageUrl, // Set the final image URL
+        imagePreview: imageUrl,
+        sponsorAdImageFile: null,
+      }));
+      showToast('Image uploaded successfully', 'success');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || 'Failed to upload image';
+      showToast(errorMessage, 'error');
+    },
+  });
 
   // Handle image file selection
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -75,7 +111,7 @@ export default function CreateSponsorAdPage() {
         return;
       }
 
-      // Create preview
+      // Show preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({
@@ -86,6 +122,9 @@ export default function CreateSponsorAdPage() {
         }));
       };
       reader.readAsDataURL(file);
+      
+      // Upload to server
+      imageUploadMutation.mutate(file);
     }
   };
 
@@ -100,23 +139,32 @@ export default function CreateSponsorAdPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: SponsorAdFormData) => {
-      // This would be an actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
+      // Use sponsorAdImage (which is set from either upload or URL input)
+      return sponsorAdsApi.create({
+        sponsorBacklink: data.sponsorBacklink,
+        sponsorAdImage: data.sponsorAdImage || '',
+        status: data.status,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sponsor-ads'] });
       showToast('Sponsor ad created successfully', 'success');
       navigate('/sponsor-ads');
     },
-    onError: () => showToast('Failed to create sponsor ad', 'error'),
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || 'Failed to create sponsor ad';
+      showToast(errorMessage, 'error');
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: async (data: SponsorAdFormData) => {
-      // This would be an actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
+      // Use sponsorAdImage (which is set from either upload or URL input)
+      return sponsorAdsApi.update(id!, {
+        sponsorBacklink: data.sponsorBacklink,
+        sponsorAdImage: data.sponsorAdImage || '',
+        status: data.status,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sponsor-ads'] });
@@ -124,7 +172,10 @@ export default function CreateSponsorAdPage() {
       showToast('Sponsor ad updated successfully', 'success');
       navigate('/sponsor-ads');
     },
-    onError: () => showToast('Failed to update sponsor ad', 'error'),
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || 'Failed to update sponsor ad';
+      showToast(errorMessage, 'error');
+    },
   });
 
   const handleSubmit = () => {
@@ -132,7 +183,7 @@ export default function CreateSponsorAdPage() {
       showToast('Please enter a sponsor backlink', 'error');
       return;
     }
-    if (!formData.imagePreview && !formData.sponsorAdImage.trim()) {
+    if (!formData.imageUrl && !formData.sponsorAdImage.trim() && !formData.imagePreview) {
       showToast('Please upload an ad image', 'error');
       return;
     }
@@ -140,9 +191,10 @@ export default function CreateSponsorAdPage() {
     // Prepare form data for submission
     const submitData: SponsorAdFormData = {
       sponsorBacklink: formData.sponsorBacklink,
-      sponsorAdImage: formData.imagePreview || formData.sponsorAdImage, // Use preview if file uploaded, else URL
+      sponsorAdImage: formData.sponsorAdImage, // Keep for URL input
       sponsorAdImageFile: formData.sponsorAdImageFile,
       imagePreview: formData.imagePreview,
+      imageUrl: formData.imageUrl, // Uploaded image URL
       status: formData.status,
     };
 
@@ -188,7 +240,7 @@ export default function CreateSponsorAdPage() {
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={createMutation.isPending || updateMutation.isPending}
+            disabled={createMutation.isPending || updateMutation.isPending || imageUploadMutation.isPending}
             className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white font-semibold shadow-lg"
           >
             {(createMutation.isPending || updateMutation.isPending) ? (
@@ -330,10 +382,18 @@ export default function CreateSponsorAdPage() {
                         placeholder="https://example.com/image.jpg"
                         value={formData.sponsorAdImage}
                         onChange={(e) => {
-                          if (e.target.value) {
+                          const url = e.target.value;
+                          if (url) {
                             setFormData({ 
                               ...formData, 
-                              sponsorAdImage: e.target.value,
+                              sponsorAdImage: url,
+                              sponsorAdImageFile: null,
+                              imagePreview: url, // Set preview to URL for display
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              sponsorAdImage: '',
                               sponsorAdImageFile: null,
                               imagePreview: null,
                             });

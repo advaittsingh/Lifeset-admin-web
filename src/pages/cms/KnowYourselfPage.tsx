@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Pagination } from '../../components/ui/pagination';
 import { Plus, Edit, Trash2, Loader2, Brain, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { cmsApi } from '../../services/api/cms';
 import { useToast } from '../../contexts/ToastContext';
@@ -13,12 +14,18 @@ export default function KnowYourselfPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['personality-questions', includeInactive],
+    queryKey: ['personality-questions', includeInactive, page, limit],
     queryFn: async () => {
       try {
-        const result = await cmsApi.getPersonalityQuestions({ includeInactive });
+        const result = await cmsApi.getPersonalityQuestions({ 
+          includeInactive,
+          page,
+          limit,
+        });
         console.log('Personality questions API response:', result);
         return result;
       } catch (err) {
@@ -33,7 +40,29 @@ export default function KnowYourselfPage() {
     ? data 
     : (data?.data || (data && typeof data === 'object' && !Array.isArray(data) ? [] : []));
   
-  console.log('Processed questions:', questions, 'Count:', questions.length);
+  // Properly handle pagination from backend
+  const pagination = data?.pagination || (Array.isArray(data) ? {
+    page: 1,
+    limit: limit,
+    total: questions.length,
+    totalPages: Math.ceil(questions.length / limit),
+  } : {
+    page: page,
+    limit: limit,
+    total: questions.length,
+    totalPages: Math.max(1, Math.ceil(questions.length / limit)),
+  });
+  
+  // Ensure totalPages is at least 1
+  const totalPages = Math.max(1, pagination.totalPages || Math.ceil((pagination.total || questions.length) / limit));
+  const totalItems = pagination.total || questions.length;
+  
+  console.log('Processed questions:', questions, 'Count:', questions.length, 'Total:', totalItems, 'Pages:', totalPages);
+  
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPage(1);
+  }, [includeInactive]);
 
 
   const deleteMutation = useMutation({
@@ -155,6 +184,25 @@ export default function KnowYourselfPage() {
                   ))
                 )}
               </div>
+            )}
+            
+            {/* Pagination */}
+            {!isLoading && (questions.length > 0 || totalItems > 0) && (
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={(newPage) => {
+                  setPage(newPage);
+                  // Scroll to top when page changes
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                itemsPerPage={limit}
+                totalItems={totalItems}
+                onItemsPerPageChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
             )}
           </CardContent>
         </Card>
